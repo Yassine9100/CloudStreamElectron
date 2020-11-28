@@ -1,0 +1,933 @@
+﻿@using static CloudStreamForms.Core.CloudStreamCore;
+@using CloudStreamElectron.Controllers;
+@using ElectronNET.API;
+@using Newtonsoft.Json;
+
+@{
+	ViewData["Title"] = "CloudStream 2";
+}
+
+
+<script src="/js/download.min.js"></script>
+<script src="~/js/hls.js"></script>
+<!--
+<script src="/js/jquery.animate-colors-min.js"></script>-->
+<!--
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>-->
+<script>
+
+	const VIEW_TIME_POS = "ViewHistoryTimePos";
+	const VIEW_TIME_DUR = "ViewHistoryTimeDur";
+	const NEXT_AIRING = "NextAiringEpisode";
+	const BOOKMARK_DATA = "BookmarkData";
+	const VIEW_HISTORY = "ViewHistory";
+
+	function GetKeyPath(folder, name = "") {
+		var _s = ":" + folder + "-";
+		if (name != "") {
+			_s += name + ":";
+		}
+		return _s;
+	}
+
+	function _SetKey(path, value) {
+		localStorage.setItem(path, value);
+	}
+
+	function SetKey(folder, name, value) {
+		var path = GetKeyPath(folder, name);
+		_SetKey(path, value);
+	}
+
+	function _GetKey(path, defVal) {
+		return localStorage.getItem(path);
+	}
+
+	function _RemoveKey(path) {
+		localStorage.removeItem(path);
+	}
+
+	function RemoveKey(folder, name) {
+		_RemoveKey(GetKeyPath(folder, name));
+	}
+
+	function GetKey(folder, name, defVal) {
+		var path = GetKeyPath(folder, name);
+		var k = _GetKey(path, defVal);
+		if (k == null) {
+			return defVal;
+		}
+		else {
+			return k;
+		}
+	}
+
+	var currentSeason = 0;
+	var currentDelay = 5000;
+	var movieType = -1;
+	var isElec = isElectron();
+
+	function isElectron() {
+		// Renderer process
+		if (typeof window !== 'undefined' && typeof window.process === 'object' && window.process.type === 'renderer') {
+			return true;
+		}
+
+		// Main process
+		if (typeof process !== 'undefined' && typeof process.versions === 'object' && !!process.versions.electron) {
+			return true;
+		}
+
+		// Detect the user agent when the `nodeIntegration` option is set to true
+		if (typeof navigator === 'object' && typeof navigator.userAgent === 'string' && navigator.userAgent.indexOf('Electron') >= 0) {
+			return true;
+		}
+
+		return false;
+	}
+
+	function SelectSeason(season) {
+		currentSeason = season;
+		var ses = document.getElementById("SeasonSelectBtt");
+
+		$("#AddGrid").show();
+		$("#AddGrid").fadeOut(400);
+
+		if (ses != null) {
+			ses.textContent = "Season " + season;
+			//ses.innerHTML = `Season ${season} <img src="/img/dropdown.png" style="height:10px; width:10px; margin-left:10px;">`;
+		}
+		GetSeasons(season);
+	}
+
+	function ToggleLoading(load) {
+		var sty = "opacity:1;";
+		if (!load) {
+			sty = "opacity:0;";
+		}
+		document.getElementById("IsLoading").style = sty;
+	}
+
+	function SelectDub(_isDub) {
+		isDub = _isDub;
+
+		SelectDubVisual(_isDub);
+		GetSeasons(lastSeason);
+	}
+
+	function SelectDubVisual(_isDub) {
+		isDub = _isDub;
+		var ses = document.getElementById("DubSelectBtt");
+		if (ses != null) {
+			ses.textContent = isDub ? "Dub" : "Sub";
+		}
+	}
+
+	var currentTitleName = "";
+
+	function load() {
+		ToggleLoading(true);
+		document.title = 'CloudStream 2 - Loading...';
+
+		var _guid = localStorage.getItem("guid");
+
+		// INIT
+		$.ajax({
+			url: '/LoadTitle/',
+			dataType: "json",
+			type: "GET",
+			contentType: 'application/x-www-form-urlencoded; charset=utf-8',    //replace /json to the urlenoded
+			data: { _url: document.documentURI, guid: _guid },          // data is not json
+			async: true,
+			processData: true,                                                  //important to use it as true
+			cache: false,
+
+			success: function (data) {
+
+				var title = data.title;
+				document.title = 'CloudStream 2 - ' + title.name;
+
+				currentGuid = data.Guid;
+
+				function Fade(classN, text) {
+					$("#" + classN).hide();
+					//    $(classN).innerText = text;
+					$("#" + classN).fadeIn(200);
+					if (text != "") {
+						document.getElementById(classN).innerText = text;
+					}
+				}
+
+				var img = document.getElementById("mainPosterImg");
+				img.src = data.title.hdPosterUrl;
+
+				Fade("img-background", "");
+				Fade("YearLabel", title.year);
+				Fade("RatedLabel", "Rated: " + title.rating);
+				Fade("MinLabel", title.runtime);
+				Fade("TitleLabel", title.name);
+				Fade("DescriptLabel", title.description);
+
+				currentTitleName = title.name;
+				img.style = "height: 100%; width: 100%;";
+
+				var genres = title.genres;
+				movieType = data.title.movieType;
+				div = document.getElementById("GenreTags");
+				div.innerHTML = "";
+				for (i = 0; i < genres.length; i++) {
+					var ele = document.createElement("li");
+					ele.style = "margin-top:0px; list-style:none; border-bottom: 0px solid hsla(0,0%,100%,.05); padding-bottom:0px;" // BORDER border-bottom: 1px
+					//ele.id = "fff"
+					//   ele.text = "<button id=\"fff\">Iron man</button>"
+					//${data[i].url}
+					ele.innerHTML = `<button class=\"genreBtt\" style=\"border-radius:5px;\">${genres[i]}</button>`//data[i].name
+					//ele.innerHTML =  "<span style=\"cursor: pointer\" onclick=\"myFunction()\">" + data[i].name + "</span><span style=\"color:white; background-color:#303F9F; border-radius:5px; padding:2px; margin:2px; border: 20px;\">" + data[i].year + "</span>";
+					//  ele.innerHTML = "<a href=\"javascript: alert('Hello World!'); \">Execute JavaScript</a>"
+					//<li style=" margin-top:10px; list-style:none; border-bottom: 1px solid hsla(0,0%,100%,.05); padding-bottom:10px;"><!--!--> <span style="cursor:pointer">Iron Man</span><!--!--> <span style="color:white; background-color:#303F9F; border-radius:5px; padding:2px; margin:2px; border: 20px;  ">2008</span>
+					// ele.innerHTML = "<span href=\"/Result?id=" + data[i].url  + "&guid=" + guid+ "\"> "+ data[i].name + " "+ data[i].extra + "</span>";
+					//ele.innerHTML = " <li onclick=\"myFunction()\" style=\"margin-top:10px; list-style:none; border-bottom: 1px solid hsla(0,0%,100%,.05); padding-bottom:10px;\"><span style=\"cursor: pointer\">" + data[i].name + "</span><span style=\"color:white; background-color:#303F9F; border-radius:5px; padding:2px; margin:2px; border: 20px;\">" + data[i].year + "</span>"
+					div.appendChild(ele);
+				}
+
+				// ========================================= SEASONS =========================================
+
+				var seasonDrop = document.getElementById("SeasonDropDown");
+				seasonDrop.innerHTML = "";
+
+
+				for (var i = 0; i < data.title.seasons; i++) {
+					var ele = document.createElement("button");
+					ele.setAttribute("onclick", `SelectSeason(${(i + 1)})`);// = "class=\"dropSel\" onclick=\"alert('hello')\"";
+					ele.className = "dropSel";
+					ele.style = " z-index: 10; !important";
+					ele.innerText = "Season " + (i + 1);
+					seasonDrop.appendChild(ele);
+				}
+
+				var seasonPicker = document.getElementById("SeasonPicker");
+				if (data.title.seasons <= 1) {
+					seasonPicker.remove();
+					SelectSeason(1);
+				}
+				else {
+					seasonPicker.style = "";
+					SelectSeason(1);
+				}
+
+				for (var i = 0; i < 100; i++) {
+					x = document.getElementsByClassName("loadingItem");
+					if (x != null && x.length > 0) {
+						x[0].className = "";
+					}
+					else {
+						break;
+					}
+				}
+
+			},
+			error: function (xhr) {
+
+			}
+		});
+	}
+	function LoadLinksInstant(episode, season) {
+		return LoadLinks(episode, season, 0);
+	}
+
+	function OpenUrl(url) {
+		window.location.href = data;
+	}
+
+	function DownloadFile(data, filename, type) {
+		var file = new Blob([data], { type: type });
+		if (window.navigator.msSaveOrOpenBlob) { // IE10+
+			alert("false");
+			window.navigator.msSaveOrOpenBlob(file, filename);
+		}
+		else { // Others
+			var a = document.createElement("a"),
+				url = URL.createObjectURL(file);
+			a.href = url;
+			a.download = filename;
+			document.body.appendChild(a);
+			a.click();
+			setTimeout(function () {
+				document.body.removeChild(a);
+				window.URL.revokeObjectURL(url);
+			}, 0);
+		}
+	}
+
+	var lastData;
+	var lastMirror = 0;
+	var lastSeason = 1;
+	var lastEpisodeIndex = 0;
+	var currentSeason;
+	var isDub = true;
+	var isMovie = false;
+
+	function NextMirror() {
+		lastMirror = lastMirror + 1;
+		if (lastMirror >= lastData.links.length) {
+			lastMirror = 0;
+		}
+		SelectMirror(lastMirror);
+	}
+
+	function MainDownload() {
+		var baseLink = lastData.links[lastMirror];
+		var url = baseLink.baseUrl;
+		var name = baseLink.name;
+		DownloadFile(url, currentSeason[lastEpisodeIndex - 1].name + " - " + name + ".mp4", "video/mp4");
+	}
+
+	function LoadBar(delay) {
+		var holder = document.getElementById("LoadingHolder");
+
+		holder.innerHTML = `
+		<div class="OverlayPage" id="LoadingBarBg" style="background-color:var(--LoadingBg); position:fixed;">
+			<div style="width: 60%; height:7px; margin: auto; top: 50%; background-color:var(--LoadingBarBg); margin-left:20%; margin-right:20%; position:fixed"></div>
+			<div id="myBar" style="width: 0%; height:7px;  top: 50%; background-color:var(--LoadingBar); margin-left:20%; margin-right:20%; position:fixed"></div>
+			<a style="margin: auto; position:fixed; text-align:center; font-size: 16px;text-align:center; width:100%;top:45%">Loading...</a>
+		</div>
+		`;
+		$("#LoadingBarBg").hide();
+		$("#LoadingBarBg").fadeIn(1000);
+		$("#myBar").animate({ width: '60%' }, delay, "");
+		setTimeout(() => {
+			$("#LoadingBarBg").fadeOut(1000);
+		}, delay - 1000);
+
+		/*
+		var elem = document.getElementById("myBar");
+		var width = 0.0;
+		var id = setInterval(frame, 20);
+		function frame() {
+			if (width >= 100) {
+				clearInterval(id);
+			} else {
+				console.log(width);
+				width += (100/(delay/20));
+				elem.style.width = (width*0.6) + '%';
+				//elem.innerHTML = width * 1 + '%';
+			}
+		}*/
+	}
+
+	function SelectMirror(mirror) {
+		lastMirror = mirror;
+		var holder = document.getElementById("VideoHolder");
+		var inner = "";
+		var link = lastData.links[mirror];
+		var isM3u8 = link.typeName == "m3u8";
+		var url = lastData.links[mirror].baseUrl;
+
+
+		holder.innerHTML = `
+		<div class="OverlayPage" id="OverlayPage" style="background-color:black; margin:0px; padding:0px; ">
+			<video style="width:100%" data-poster="https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-HD.jpg" controls id="MainVideo" >
+				<source src="${(isM3u8 ? "" : url)
+			} " type="${(isM3u8 ? "application/vnd.apple.mpegurl" : "video/mp4")}">
+	Your browser does not support HTML video.
+			</video >
+		<button  onclick=\"NextMirror()\" class="genreBtt" style="border-radius:5px; text-align:center; ">Next Mirror</button>
+		<button  onclick=\"NextMirror()\" class="genreBtt" style="border-radius:5px; text-align:center; ">XStream 720p</button>
+		<button  ${(isM3u8 ? "" : "onclick=\"MainDownload()\"")}class="genreBtt" style="border-radius:5px; text-align:center; ${(isM3u8 ? "opacity:0.1;" : "")}">Download</button>
+		</div >
+		`;
+		/*		<button  ${(isM3u8 ? "" : "onclick=\"OpenUrl()\"" )}class="dropbtn" style="border-radius:5px; text-align:center; ${(isM3u8 ? "opacity:0.1;" : "")}">Open</button>*/
+
+
+		var video = document.getElementById("MainVideo");
+		if (isM3u8) {
+			if (Hls.isSupported()) {
+				var hls = new Hls();
+				var m3u8Url = decodeURIComponent(url)
+				hls.loadSource(m3u8Url);
+				hls.attachMedia(video);
+				hls.on(Hls.Events.MANIFEST_PARSED, function () {
+					video.play();
+				});
+				document.title = url
+			}
+			else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+				video.src = url;
+				video.addEventListener('canplay', function () {
+					video.play();
+				});
+				video.volume = 0.3;
+				document.title = url;
+			}
+		}
+		else {
+
+		}
+		video.addEventListener('error', function (event) { NextMirror(); }, true);
+	}
+
+	function GetIdFromLoadedEpisode(episode) {
+		if (episode < 1) episode = 1;
+		return currentSeason[episode - 1].id;
+	}
+
+	function ToggleEpisode(episode) {
+		/*
+		var $contextMenu = $("#contextMenu");
+		$contextMenu.hide();*/
+		SetEpisode(episode, !GetKey(VIEW_HISTORY, GetIdFromLoadedEpisode(episode), false));
+	}
+
+	function SetEpisode(episode, setTo, update = true) {
+		var id = GetIdFromLoadedEpisode(episode);
+		if (setTo) {
+			SetKey(VIEW_HISTORY, id, true);
+		}
+		else {
+			RemoveKey(VIEW_HISTORY, id);
+		}
+		if (update) {
+			LoadEpisodes(false);
+		}
+	}
+
+	function PlayEpisode(episode, forceInApp = false) {
+		SetEpisode(episode, true);
+		if (isElec && !forceInApp) {
+			LoadVlc(episode, "vlc", 0);
+		}
+		else {
+			return;/*
+			lastEpisodeIndex = episode;
+			SelectMirror(0);*/
+		}
+	}
+
+	var episodeLinks = {};
+
+	async function ShowMenu(data, episode, season, autoPlay) {
+
+		lastData = data;
+
+		if (autoPlay) {
+			PlayEpisode(episode);
+		}
+		else {
+			var buttons;
+			if (isElec) {
+				buttons = ["Play External App", "Download", "Copy Link", "Reload"]; // , "Play In App"
+			}
+			else {
+				buttons = ["Copy Link", "Reload"]; // "Play",
+			}
+			var res = await DisplayActionSheet(isMovie ? currentTitleName : currentSeason[episode - 1].name, buttons);
+			if (res != "Cancel") {
+				if (res == "Play" || res == "Play In App") {
+					PlayEpisode(episode, true);
+				}
+				else if (res == "Play External App") {
+					PlayEpisode(episode, false);
+				}
+				else if (res == "Copy Link") {
+					var allLinks = [];
+					var allNames = [];
+					for (var i = 0; i < data.links.length; i++) {
+						allLinks.push(data.links[i].baseUrl);
+						allNames.push(data.links[i].PublicName);
+					}
+
+					var link = await DisplayActionSheet("Copy Link", allNames, true);
+					if (link >= 0) {
+						navigator.clipboard.writeText(allLinks[link]);
+					}
+				}
+				else if (res == "Reload") {
+					LoadLinks(episode, season, currentDelay, false, true);
+				}
+
+			}
+		}
+	}
+
+
+	//delay in ms
+	function LoadLinks(episode, season, delay, autoPlay = true, reloadAllLinks = false) {
+		var epId = GetIdFromLoadedEpisode(episode);
+
+		if (!reloadAllLinks) {
+			if (epId in episodeLinks) {
+				ShowMenu(episodeLinks[epId], episode, season, autoPlay);
+				return;
+			}
+		}
+
+		//TODO ADD CHECK IF LINKS ARE LOADED
+		ToggleBlur(true);
+		if (delay > 0) {
+			LoadBar(delay);
+		}
+
+		$.ajax({
+			url: '/GetLoadLinks/',
+			dataType: "json",
+			type: "GET",
+			contentType: 'application/x-www-form-urlencoded; charset=utf-8',    //replace /json to the urlenoded
+			data: { episode: episode, season: season, delay: delay, guid: currentGuid, isDub: isDub, reloadAllLinks: reloadAllLinks },          // data is not json
+			async: true,
+			processData: true,                                                  //important to use it as true
+			cache: false,
+
+			success: async function (data) {
+				ToggleBlur(false);
+				if (data == "" || data == null) {
+
+				}
+				else {
+					episodeLinks[epId] = data;
+					ShowMenu(data, episode, season, autoPlay);
+				}
+			},
+			error: function (xhr) {
+				ToggleBlur(false);
+			}
+		});
+	}
+
+	function LoadVlc(episode, player, startTime) {
+		$.ajax({
+			url: '/LoadPlayer/',
+			dataType: "json",
+			type: "GET",
+			contentType: 'application/x-www-form-urlencoded; charset=utf-8',    //replace /json to the urlenoded
+			data: { episode: episode, player: player, guid: currentGuid },          // data is not json
+			async: true,
+			processData: true,                                                  //important to use it as true
+			cache: false,
+
+			success: function (data) {
+			},
+			error: function (xhr) {
+			}
+		});
+	}
+
+	function Sleep(ms) {
+		return new Promise(resolve => setTimeout(resolve, ms));
+	}
+
+
+	var selectedButton = -1;
+
+	function SelectButton(index) {
+		selectedButton = index;
+	}
+
+	function ToggleBlur(blur) {
+		var mainHolder = document.getElementById("InfoHolder");
+		mainHolder.className = blur ? "blur-on" : "";
+	}
+
+	async function DisplayActionSheet(title, buttons, returnNumber = false) {
+		selectedButton = -1;
+		var holder = document.getElementById("SelectHolder");
+
+		var buttonsHtml = "";
+		for (var i = 0; i < buttons.length; i++) {
+			buttonsHtml += `
+			<button class="searchRes" onfocus=\"SelectButton(${i})\" style="text-align:center; height:50px">
+				${buttons[i]}
+			</button>
+			`
+		}
+
+
+		holder.innerHTML = `
+		<div class="OverlayPage" id="SelectBarBg" style="background-color:var(--LoadingBg); position: fixed; vertical-align:middle;">
+			<h1>${title}</h1>
+			<div style="margin: auto; width: 80%; max-height: 65%; scrollbar-width: thin; overflow-y: auto; overflow-x: hidden;">
+				${buttonsHtml}
+			</div>
+			<div style="margin: auto; width: 80%; ">
+				<button class="searchRes" onfocus="SelectButton(-2)" style="text-align:center; height:50px;">Cancel</button>
+			</div>
+		</div>
+		`;
+		$("#SelectBarBg").hide();
+		$("#SelectBarBg").fadeIn(250);
+
+		while (selectedButton == -1) {
+			await Sleep(100);
+		}
+
+		$("#SelectBarBg").fadeOut(250);
+		await Sleep(250);
+		holder.innerHTML = "";
+
+		if (returnNumber) {
+			if (selectedButton == -2) {
+				return -1;
+			}
+			return selectedButton;
+		}
+		else {
+			if (selectedButton == -2) {
+				return "Cancel";
+			}
+			return buttons[selectedButton];
+		}
+	}
+
+	function LoadEpisodes(fadeIn = true) {
+		var data = currentSeason;
+
+		var season = lastSeason;
+		var innerHtml = "";
+		//	var _cal = GetKey(VIEW_HISTORY, data[0].id, false) ? "#303F9F" : "#a6a6a6";
+
+		var grid = document.getElementById("AddGrid");
+		for (var i = 0; i < data.length; i++) {
+			var eId = data[i].id;
+
+			var hasVisited = GetKey(VIEW_HISTORY, eId, false);
+			var descriptColor = hasVisited ? "var(--DescriptVisited)" : "var(--DescriptNotVisited)";//"#303F9F" : "#a6a6a6";
+			var mainColor = hasVisited ? "var(--EpisodeVisited)" : "var(--EpisodeNotVisited)";//"#829eff" : "#ffffff";
+			if (!fadeIn) {
+				$("#NameEp" + eId).css({ color: mainColor }, 250);
+				$("#DescriptEp" + eId).css({ color: descriptColor }, 250);
+				$("#RatingEp" + eId).css({ color: descriptColor }, 250);
+				//	$('#DescriptEp' + eId).animate({ backgroundColor: mainColor, width: hasVisited ? '100%' : '60%'}, 500);
+				//	$('#InfoDiv').fadeOut();//({ backgroundColor: _cal });
+
+				/*
+				$(`#DescriptEp_${eId}`).animate({ color: descriptColor });
+				$(`#RatingEp_${eId}`).animate({ color: descriptColor });*/
+			}
+			else {
+				var nameTitle = data[i].name;
+				if (!isMovie) {
+					nameTitle = (i + 1) + ". " + nameTitle;
+				}
+				var _height = 160;
+				var _float = "width: 100%; float: left;";
+				/*if (isMovie) {
+					var _height = 400;
+					_float = "width: 80%; margin-left:10%;";
+				}*/
+				var _min_height = 30;
+				var _width = (_height - _min_height) * 1.78;
+
+
+				var episode = i + 1;
+				innerHtml += `
+						<div class="click-poster grid-element" style="height:${_height - _min_height}px; width:${_width}px;" oncontextmenu=\"ToggleEpisode(${episode});\" onclick=\"LoadLinks(${(isMovie ? -1 : episode)},${season},${currentDelay},false);\" ">
+							<img style="height:100%;border-radius:2px;" class="SelectEpisodeImg" src="${data[i].posterUrl}" />
+							<div style="bottom:0px; position: absolute; text-align:center;background-color:rgba(0,0,0,0.3); width:100%; padding-top:10px; padding-bottom:10px;">
+								<a  id="NameEp${eId}" class="EpisodeText" style="color:${mainColor};bottom:5px;right:0%; left:0%">${nameTitle}</a>
+							</div>
+
+							<!--<div style="transition: width 0.2s linear; transition: .5s ease; left: 50%; top: 50%; position: absolute; transform: translate(-50%, -50%); -ms-transform: translate(-50%, -50%); text-align: center;">
+								<img src="/img/PlayBtt.png" onclick=\"LoadLinks(${(isMovie ? -1 : episode)},${season},${currentDelay},false);\" class="PlayButton" />
+							</div>-->
+						</div>
+				`;
+				/*`
+			<div style = "${_float}" class="PlayEpisodes">
+				<div style="width: 100%; margin-left:auto;
+							 height:${_height}px;
+							  font-size: 25px;
+							  cursor: pointer;
+							  line-height: 0.7;
+							  color: white; ">
+					<div style="margin: 10px; ">
+
+						<div
+							oncontextmenu=\"ToggleEpisode(${episode});\"
+							style="
+							height:${_height - _min_height}px;
+							background-color:var(--EpisodeHolderBg);
+							border-radius:5px;
+							padding: 10px;
+							overflow:hidden;"
+							onclick=\"LoadLinks(${(isMovie ? -1 : episode)},${season},${currentDelay},false);\"
+							>
+
+							<div style="height:${_height - _min_height}px; width:${_width}px; float:left; position: relative; left: 0; top: 0;">
+								<img style="height:100%;border-radius:2px;" class="SelectEpisodeImg" src="${data[i].posterUrl}" />
+								<div style="transition: width 0.2s linear; transition: .5s ease; left: 50%; top: 50%; position: absolute; transform: translate(-50%, -50%); -ms-transform: translate(-50%, -50%); text-align: center;">
+									<img src="/img/PlayBtt.png" onclick=\"LoadLinks(${(isMovie ? -1 : episode)},${season},${currentDelay});\" class="PlayButton" />
+								</div>
+							</div>
+							<div style="margin-left:${_width}px; padding:10px; " >
+								<h4 id="NameEp${eId}" class="EpisodeText" style=" font-weight:400; font-size:15px; padding-top:10px; color:${mainColor}; margin:2px;">
+									${nameTitle}
+								</h4>
+								<h4 id="RatingEp${eId}" class="EpisodeText" style=" font-weight:400; font-size:15px; padding-top:10px; color:${descriptColor}; margin:2px;">
+									★ ${data[i].rating}
+								</h4>
+								<h4 id="DescriptEp${eId}" class="EpisodeText" style=" font-weight:400; font-size:15px; padding-top:10px; color:${descriptColor}; margin:2px;line-height:1.2em;">
+									${data[i].description}
+								</h4>
+							</div>
+			</div></div></div></div > `;*/
+			}
+		}
+		if (fadeIn) {
+			grid.innerHTML = innerHtml;
+			$("#AddGrid").hide();
+			$("#AddGrid").fadeIn(400);
+		}
+	}
+
+	function GetSeasons(season) {
+		ToggleLoading(true);
+		lastSeason = season;
+
+		$.ajax({
+			url: '/GetSeasons/',
+			dataType: "json",
+			type: "GET",
+			contentType: 'application/x-www-form-urlencoded; charset=utf-8',    //replace /json to the urlenoded
+			data: { season: season, guid: currentGuid, isDub: isDub },          // data is not json
+			async: true,
+			processData: true,                                                  //important to use it as true
+			cache: false,
+
+			success: function (_data) {
+				ToggleLoading(false);
+				var data = _data.Episodes;
+				currentSeason = data;
+
+				SelectDubVisual(_data.dubExists && isDub);
+				var dubPicker = document.getElementById("DubPicker");
+
+				if (movieType != 2) {
+					dubPicker.style = "visibility:hidden;";
+				}
+				else {
+					if (!_data.dubExists || !_data.subExists) {
+						dubPicker.style = "";
+					}
+					else {
+						dubPicker.style = "visibility:visible;";
+					}
+				}
+
+				// ========================================= DUB/SUB =========================================
+				var dubDrop = document.getElementById("DubDropDown");
+
+				dubDrop.innerHTML = "";
+				if (_data.dubExists) {
+					var dubEle = document.createElement("button");
+					dubEle.setAttribute("onclick", `SelectDub(true)`);
+					dubEle.className = "dropSel";
+					dubEle.style = " z-index: 10; !important";
+					dubEle.innerText = "Dub"
+					dubDrop.appendChild(dubEle);
+				}
+				if (_data.subExists) {
+					var subEle = document.createElement("button");
+					subEle.setAttribute("onclick", `SelectDub(false)`);
+					subEle.className = "dropSel";
+					subEle.style = " z-index: 10; !important";
+					subEle.innerText = "Sub"
+					dubDrop.appendChild(subEle);
+				}
+
+				//visibility:visible;
+
+
+				isMovie = movieType == 3 || movieType == 0;
+				LoadEpisodes(true);
+			},
+			error: function (xhr) {
+
+			}
+		});
+	}
+
+	window.onload = load;
+
+	//https://stackoverflow.com/questions/18666601/use-bootstrap-3-dropdown-menu-as-context-menu
+	$(function () { // FIREFOX RIGHT CLICK
+
+		var $contextMenu = $("#contextMenu");
+
+		$("body").on("contextmenu", "", function (e) {
+			$contextMenu.css({
+				display: "block",
+				left: e.pageX,
+				top: e.pageY
+			});
+			return false;
+		});
+
+		$('html').click(function () {
+			$contextMenu.hide();
+		});
+
+	});
+</script>
+
+<div style="float: right;
+		position: absolute;
+		width: 80%;
+		padding-left: 10%;
+		margin-left: -10px;
+		margin-top: 4px;
+		z-index: 10;
+		height: 0px;
+">
+	<div style="float: right;
+		width: 40%;
+		margin-left: 10px;
+		margin-right: 10px;
+		height: 0px;" spellcheck="false">
+
+		<input value="" placeholder="Search..." class="searchExpand" style="width:100%; margin:0px;" autocomplete="off" maxlength="80" id="SearchBar" onfocus="searchFocus(true)" onblur="onBlurSearch()" onchange="searchFunc()" input[type="search" ]="" onkeyup="searchFunc()">
+		<div id="SearchResultsDIV" style="		background-color: #303030;
+		border-radius: 5px;
+">
+		</div>
+	</div>
+</div>
+
+<div id="InfoHolder" style="height: 100%;
+		min-width: 1000px;
+		background-color: var(--MainBg);
+		margin: auto;
+		width: 80%">
+
+	<div class="" onmouseup="window.location = '/'" href="/" style="		cursor: pointer;
+		text-decoration: none;
+		width: auto;
+		position: absolute;
+		margin: 8px;
+		z-index: 12
+">
+		<img src="~/img/outline_home_white_48dp.png" style="height:30px; float:left; position:relative; opacity:0.5" />
+		<a style="		opacity: 0.5;
+		position: relative;
+		top:5px;
+		left:10px;
+		">Home</a>
+	</div>
+
+
+	<div class="loadingBar" id="IsLoading"></div>
+
+	<!--#FFFFFF03-->
+	<div style="padding: 40px; padding-top:20px;">
+
+		<div>
+			<div style="  margin-left:10px; ">
+				<div style="    height: 201px;
+        width: 136.5px;
+        float: left;
+        margin-right:10px;
+        background-color: #222
+    " id="img-background" class="loadingItem">
+					<img id="mainPosterImg" />
+				</div>
+				<div>
+					<div style="height:30px;width:90%; padding:0px;" class="loadingItem">
+						<h2 id="TitleLabel" style="text-wrap:none; margin-top:0px;"></h2>
+					</div>
+					<div id="InfoDiv" class="loadingItem" style="width:80%;  height:25px;">
+						<a style="		color: var(--TitleRated);
+		font-weight: 500;
+		margin-right: 10px;
+		font-size: 18px;" id="RatedLabel"></a>
+						<a style="		color: var(--TitleYear);
+		margin-left: 0px;" id="YearLabel"> </a>
+						<a style="        color: #919191;
+        margin-left: 6px;
+        width: 100px;" id="MinLabel"> </a>
+					</div>
+					<div class="loadingItem" style=" height:auto;" id="DescriptHolder">
+						<a style="		color: var(--TitleDescript);
+		font-weight: 500;
+		margin-top: 10px;
+	" id="DescriptLabel"></a>
+					</div>
+					<div class="loadingItem" id="GenreTags" style="width:80%; margin-top:10px; height:50px;">
+
+					</div>
+				</div>
+
+				<div style=" visibility:hidden;" class="dropdown" id="SeasonPicker">
+					<button id="SeasonSelectBtt" class="genreBtt" style="border-radius:5px; float:left; text-align:center; width:105px;">Season 1</button>
+					<div class="dropdown-content" id="SeasonDropDown" style="position: absolute; max-height: 220px; scrollbar-width: thin; overflow-y: auto; overflow-x: hidden;">
+
+					</div>
+				</div>
+				<div style=" visibility:hidden;" class="dropdown" id="DubPicker">
+					<button id="DubSelectBtt" class="genreBtt" style="border-radius:5px; float:left; text-align:center; width:105px;">Dub</button>
+					<div class="dropdown-content" id="DubDropDown" style="position:absolute">
+
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="loadingItem" id="ChangeItems" style="float:left; width:220px; margin-right:60%; margin-top:10px; margin-left:10px; height:auto; ">
+
+
+			<!--
+			<div style="float:left" class="dropdown">
+
+				<button class="dropbtn" style="border-radius:5px;">Dub<img src="~/img/dropdown.png" style="height:10px; width:10px; margin-left:10px;" /></button>
+				<div class="dropdown-content" style="width:70px">
+					<button class="dropSel" style="width:70px">Dub</button>
+					<button class="dropSel" style="width:70px">Sub</button>
+				</div>
+			 </div>-->
+		</div>
+	</div>
+	<div class="grid-container grid-container--fill" style="		width: 100%;
+		margin: auto;
+		float: left;
+		position: relative;
+		margin-top: 20px;
+		display: table;
+		background-color: var(--MainBg);
+		clear: both;
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		flex-wrap: wrap;
+	" id="AddGrid">
+	</div>
+
+</div>
+
+<div id="LoadingHolder"></div>
+<div id="VideoHolder"></div>
+<div id="SelectHolder"></div>
+
+<!--margin-left: auto; margin-right: auto; display: block; height:100%-->
+<!--
+<div class="OverlayPage" id="OverlayPage" style="background-color:black; margin:0px; padding:0px;">
+	<video style="width:100%" data-poster="https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-HD.jpg" controls>
+		<source src="https://storage.googleapis.com/skilful-vertex-287812/CWJIK5TODG44/23a_1599211411_116269.mp4" type="video/mp4">
+		Your browser does not support HTML video.
+	</video>
+</div>
+<!--
+
+<div class="loadingItem"  id="ChangeItems" style="float:right; width:80%; margin-top:20px; height:30px; ">
+			<button id="genreBtt">Season 2</button>
+			<button id="genreBtt">Dub</button>
+		</div>
+
+<div>
+	<h1 style="text-align:start; font-weight:bold">Iron man</h1>
+	<a style="color: #4257d8; font-size:18px; font-weight:bold;">Rated 7.9</a>
+	<a style="color: #afafaf; font-size:16px; padding:12px; text-align:center; ">2008</a>
+	<a style="color: #afafaf;
+		font-size: 16px;
+		text-align: center;
+	">126min</a>
+	<h1 style="text-align:start; font-size:16px;">After being held captive in an Afghan cave, billionaire engineer Tony Stark creates a unique weaponized suit of armor to fight evil. </h1>
+
+</div>
+	-->

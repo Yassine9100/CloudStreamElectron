@@ -1,0 +1,21 @@
+﻿@{
+    ViewData["Title"] = "Privacy Policy";
+
+}
+<h1>@ViewData["Title"]</h1>
+
+<p>Use this page to detail your site's privacy policy.</p>
+
+<button id="HelloBtt">Hello</button>
+
+<script>
+            (function(){
+                const { ipcRenderer } = require("electron");
+
+                document.getElementById("HelloBtt").addEventListener("click", () => {
+                    ipcRenderer.send("hello");
+                });
+
+
+            }());
+</script>

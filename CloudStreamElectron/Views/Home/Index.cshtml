@@ -1,0 +1,211 @@
+﻿@using static CloudStreamForms.Core.CloudStreamCore;
+@using CloudStreamElectron.Controllers;
+@using ElectronNET.API;
+@using Newtonsoft.Json;
+
+@{
+	ViewData["Title"] = "CloudStream 2";
+}
+<script suppress-error="BL9992">
+	var guid;
+
+	function topFunction() {
+		document.body.scrollTop = 0; // For Safari
+		document.documentElement.scrollTop = 0; // For Chrome, Firefox, IE and Opera
+	}
+	/*
+	function download(data, filename, type) {
+		var file = new Blob([data], { type: type });
+		if (window.navigator.msSaveOrOpenBlob) // IE10+
+			window.navigator.msSaveOrOpenBlob(file, filename);
+		else { // Others
+			var a = document.createElement("a"),
+				url = URL.createObjectURL(file);
+			a.href = url;
+			a.download = filename;
+			document.body.appendChild(a);
+			a.click();
+			setTimeout(function () {
+				document.body.removeChild(a);
+				window.URL.revokeObjectURL(url);
+			}, 0);
+		}
+	}
+	*/
+	function load() {
+		document.title = 'CloudStream 2';
+		var search = document.getElementById("SearchBar");
+
+		search.focus();
+		LoadGuid();
+		LoadTop100(1, false, false);
+	}
+
+	function LoadTop100(start, isTop100, isAnime) {
+
+		$.ajax({
+			url: '/FetchTop100/',
+			dataType: "json",
+			type: "GET",
+			contentType: 'application/x-www-form-urlencoded; charset=utf-8',   //replace /json to the urlenoded
+			data: { start: start, isTop100: isTop100, isAnime: isAnime, guid: currentGuid },          // data is not json
+			async: true,
+			processData: true,  //important to use it as true
+			cache: true,
+
+			success: function (data) {
+				var addGrid = document.getElementById("Top100Grid");
+
+				var inner = "";
+				for (var i = 0; i < data.length; i++) {
+					var d = data[i];
+					inner += `
+						<button class="grid-element hold-poster" onmouseup=\"{loadPage('?url=${d.id}&name=${d.name}')\}">
+							<img style="height:142px; width:96px; border-radius: 3px; " src="${d.img}">
+						</button>
+					`;
+				}
+				addGrid.innerHTML = inner;
+			},
+			error: function (xhr) {
+			}
+		});
+	}
+
+
+	function copyText(text) {
+		function selectElementText(element) {
+			if (document.selection) {
+				var range = document.body.createTextRange();
+				range.moveToElementText(element);
+				range.select();
+			} else if (window.getSelection) {
+				var range = document.createRange();
+				range.selectNode(element);
+				window.getSelection().removeAllRanges();
+				window.getSelection().addRange(range);
+			}
+		}
+		var element = document.createElement('DIV');
+		element.textContent = text;
+		document.body.appendChild(element);
+		selectElementText(element);
+		document.execCommand('copy');
+		element.remove();
+	}
+	/*
+	var txt = document.getElementById('txt');
+	var btn = document.getElementById('btn');
+	btn.addEventListener('click', function () {
+		copyText(txt.value);
+	})*/
+</script>
+
+<body onload="load()">
+</body>
+<!--
+<div id="container">
+	<video controls="" crossorigin="" playsinline="" data-poster="https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-HD.jpg" id="player">
+		<source src="https://storage.googleapis.com/skilful-vertex-287812/CWJIK5TODG44/23a_1599211411_116269.mp4" type="video/mp4">
+
+		<track kind="captions" label="English" srclang="en" src="https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-HD.en.vtt" default="">
+		<track kind="captions" label="Français" srclang="fr" src="https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-HD.fr.vtt">
+
+		<a href="https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-576p.mp4" download="">Download</a>
+	</video>
+</div>-->
+<!--
+<video width="400" data-poster="https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-HD.jpg" controls>
+	<source src="https://storage.googleapis.com/skilful-vertex-287812/CWJIK5TODG44/23a_1599211411_116269.mp4" type="video/mp4">
+	Your browser does not support HTML video.
+</video>-->
+
+<div class="text-center" id="MainDiv" style=" padding-bottom: 40px;" >
+	<h1 class="display-4">Home</h1>
+	<!--<p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>-->
+	<!--  <i class="material-icons" style="padding-top:20px">search</i>-->
+	<input value="" placeholder="Search..." spellcheck="false" autocomplete="off" maxlength="80" id="SearchBar" onfocus="searchFocus(true)" onblur="onBlurSearch()" onchange="searchFunc()" input[type="search" ] onkeyup="searchFunc()" />
+	<!--
+		<ul id="gridtype">
+		</ul>
+	-->
+	<!--
+	<ul id="gridtype">
+		<li> <i class="material-icons" id="input_img" style="position:absolute; top:0; left:0; z-index:4; margin-left:5px; margin-top:1px;">search</i></li>
+		<li><input value="" placeholder="Search..." style="position:absolute; top:0; left:0;" spellcheck="false" autocomplete="off" maxlength="80" id="SearchBar" onchange="searchFunc()" onkeyup="searchFunc()" /></li>
+	</ul>
+	-->
+
+	<div style=" width: 50%; margin-left: 25%; margin-right: 25%; position: absolute; transform: translateX(-3px); z-index: 10;">
+		<div style="margin-right: 10px;">
+			<div id="SearchResultsDIV" style="background-color: #303030; border-radius:5px;">
+			</div>
+		</div>
+	</div>
+
+
+	<div id="Top100Grid" style="margin-top:10px;" class="grid-container grid-container--fill">
+
+	</div>
+	<!--hidden="hidden"-->
+	<!--<div id="OverlayPage" >
+		<h1 style="text-align:start; font-weight:bold">Iron man</h1>
+		<a style="color: #4257d8; font-size:18px; font-weight:bold;">Rated 7.9</a>
+		<a style="color: #646464; font-size:16px; padding:12px; text-align:center; ">2008</a>
+		<a style="color: #646464; font-size:16px; text-align:center; ">126min</a>
+		<h1 style="text-align:start; font-size:16px;">After being held captive in an Afghan cave, billionaire engineer Tony Stark creates a unique weaponized suit of armor to fight evil. </h1>
+
+	</div>-->
+</div>
+<!--<div>
+
+
+</div>-->
+
+<script>
+
+    function myFunction() {
+        div = document.getElementById("OverlayPage");
+    }
+    (function () {
+        /*
+        //   const { ipcRenderer } = require("electron");
+        alert("da");
+        var search = document.getElementById("SearchBar");
+        search.addEventListener("change", () => {
+            alert("heelo2");
+
+            // ipcRenderer.send("search", search.value);
+        });
+        search.addEventListener("keyup", (ui) => {
+            alert("heelo");
+            @{
+                //isLoaded = true;
+              //  core.QuickSearch("hello world");
+            }
+
+            /*
+            $.ajax({
+                url: '/Search/',
+                dataType: "json",
+                type: "GET",
+                contentType: 'application/x-www-form-urlencoded; charset=utf-8',    //replace /json to the urlenoded
+                data: { search: search.value },          // data is not json
+                async: true,
+                processData: true,                                                  //important to use it as true
+                cache: false,
+
+                success: function (data) {
+                    alert(data);
+                },
+                error: function (xhr) {
+                    alert('error');
+                }
+            });
+            //  Electron.Dialog.ShowErrorBox("dada", ui);
+            //  ipcRenderer.send("search", search.value);
+        });*/
+
+        //});*/
+    });
+</script>

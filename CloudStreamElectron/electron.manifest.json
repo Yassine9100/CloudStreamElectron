@@ -1,0 +1,41 @@
+{
+	"executable": "CloudStreamElectron",
+	"splashscreen": {
+		"imageFile": ""
+	},
+	"name": "CloudStreamElectron",
+	"author": "LagradOst",
+	"singleInstance": false,
+	"environment": "Production",
+	"build": {
+		"appId": "com.CloudStreamElectron.app",
+		"productName": "CloudStreamElectron",
+		"copyright": "Copyright © 2020",
+		"buildVersion": "1.0.0",
+		"compression": "maximum",
+		"directories": {
+			"output": "../../../bin/Desktop"
+		},
+		"win": {
+			"icon": "../../../icon.ico"
+		},
+		"linux": {
+			"icon": "../../../icon_256x.png"
+		},
+		"extraResources": [
+			{
+				"from": "./bin",
+				"to": "bin",
+				"filter": [ "**/*" ]
+			}
+		],
+		"files": [
+			{
+				"from": "./ElectronHostHook/node_modules",
+				"to": "ElectronHostHook/node_modules",
+				"filter": [ "**/*" ]
+			},
+			"**/*"
+		]
+	}
+}

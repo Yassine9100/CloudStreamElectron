@@ -1,0 +1,3 @@
+electronize build /target win
+electronize build /target osx /PublishReadyToRun false
+electronize build /target linux /PublishReadyToRun false
