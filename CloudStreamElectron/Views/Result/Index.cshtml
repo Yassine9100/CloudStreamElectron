@@ -391,10 +391,10 @@
 		}
 	}
 
-	function PlayEpisode(episode, forceInApp = false) {
+	function PlayEpisode(episode, forceInApp = false, player = "vlc") {
 		SetEpisode(episode, true);
 		if (isElec && !forceInApp) {
-			LoadVlc(episode, "vlc", 0);
+			LoadVlc(episode, player, 0);
 		}
 		else {
 			return;/*
@@ -415,7 +415,7 @@
 		else {
 			var buttons;
 			if (isElec) {
-				buttons = ["Play External App", "Download", "Copy Link", "Reload"]; // , "Play In App"
+				buttons = ["Play VLC", "Play MPV", "Copy Link", "Reload"]; // , "Play In App" "Play External App",
 			}
 			else {
 				buttons = ["Copy Link", "Reload"]; // "Play",
@@ -427,6 +427,12 @@
 				}
 				else if (res == "Play External App") {
 					PlayEpisode(episode, false);
+				}
+				else if (res == "Play VLC") {
+					PlayEpisode(episode, false, "vlc");
+				}
+				else if (res == "Play MPV") {
+					PlayEpisode(episode, false, "mpv");
 				}
 				else if (res == "Copy Link") {
 					var allLinks = [];
@@ -444,7 +450,6 @@
 				else if (res == "Reload") {
 					LoadLinks(episode, season, currentDelay, false, true);
 				}
-
 			}
 		}
 	}

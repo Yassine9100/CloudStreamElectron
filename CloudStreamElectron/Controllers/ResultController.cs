@@ -15,9 +15,60 @@ using System.Net;
 using static CloudStreamForms.Core.CloudStreamCore;
 using CloudStreamForms.Core;
 using System.IO;
+using System.Runtime.InteropServices;
+using static CloudStreamElectron.Controllers.ResultHelper;
 
 namespace CloudStreamElectron.Controllers
 {
+	public static class ResultHelper
+	{
+		public static string Bash(this string cmd, bool waitForExit = true)
+		{
+			var escapedArgs = cmd.Replace("\"", "\\\"");
+
+			var process = new Process() {
+				StartInfo = new ProcessStartInfo {
+					FileName = "/bin/bash",
+					Arguments = $"-c \"{escapedArgs}\"",
+					RedirectStandardOutput = true,
+					UseShellExecute = false,
+					CreateNoWindow = true,
+				}
+			};
+			process.Start();
+			if (waitForExit) {
+				string result = process.StandardOutput.ReadToEnd();
+				process.WaitForExit();
+				return result;
+			}
+			else {
+				return "";
+			}
+		}
+
+		public static string Cmd(this string cmd, bool waitForExit = true)
+		{
+			Process process = new Process();
+			process.StartInfo.FileName = "cmd.exe";
+			process.StartInfo.RedirectStandardInput = true;
+			process.StartInfo.RedirectStandardOutput = true;
+			process.StartInfo.CreateNoWindow = true;
+			process.StartInfo.UseShellExecute = false;
+			process.Start();
+
+			process.StandardInput.WriteLine(cmd);
+			process.StandardInput.Flush();
+			process.StandardInput.Close();
+			if (waitForExit) {
+				process.WaitForExit();
+				return process.StandardOutput.ReadToEnd();
+			}
+			else {
+				return "";
+			}
+		}
+	}
+
 	public class ResultController : Controller
 	{
 		private readonly ILogger<ResultController> _logger;
@@ -45,6 +96,11 @@ namespace CloudStreamElectron.Controllers
 			return _s;
 		}
 
+
+		static bool IsLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+		static bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+		static bool IsOSX = RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+
 		[Route("LoadPlayer")]
 		[HttpGet]
 		public async Task<string> LoadPlayer(int episode, string player, string guid)
@@ -63,31 +119,34 @@ namespace CloudStreamElectron.Controllers
 				var _link = CloudStreamCore.GetCachedLink(id).Copy();
 				if (_link == null) return "no links";
 
-				Process p = new Process();
-				p.StartInfo.FileName = player;
-				p.StartInfo.UseShellExecute = true;
-
-				//				int seekTo = 0;
-
-				if (player == "vlc") {
-					//--start-time 51
-					p.StartInfo.Arguments = "--fullscreen vlc://quit";
-				}
-				else if (player == "mpv") {
-					//--start=+56
-					//playlist-pos
-					//playlist-current-pos
-					p.StartInfo.Arguments = $"--title={(isMovie ? core.activeMovie.title.name : cEpisode.name)}";
-				}
 				var endPath = Path.Combine(Directory.GetCurrentDirectory(), baseM3u8Name);
 				if (System.IO.File.Exists(endPath)) {
 					System.IO.File.Delete(endPath);
 				}
+
 				var links = _link.Value.links.Where(t => !t.isAdvancedLink);
 				System.IO.File.WriteAllText(endPath, ConvertPathAndNameToM3U8(links.Select(t => t.baseUrl).ToList(), links.Select(t => t.PublicName).ToList()));
 
-				p.StartInfo.FileName = endPath;
-				p.Start();
+				string argu = "";
+
+				if (player == "vlc") {
+					argu = $"--fullscreen --no-loop vlc://quit";
+				}
+				else if (player == "mpv") {
+					argu = $"--title={(isMovie ? core.activeMovie.title.name : cEpisode.name)}";
+				}
+
+				if (IsLinux) {
+					$"{player} \"{endPath}\" {argu}".Bash(false);
+				}
+				else if (IsWindows) {
+					if(player == "mpv") {
+						$"{player} \"{endPath}\" {argu}".Cmd(false);
+					}
+					else if(player == "vlc") {
+						$"{@"""C:\Program Files\VideoLAN\VLC\vlc.exe"""} \"{endPath}\" {argu}".Cmd(false);
+					}
+				}
 
 				return "true";
 			}
@@ -232,7 +291,7 @@ namespace CloudStreamElectron.Controllers
 			var core = CoreHolder.GetCore(guid);
 
 			int casheId = (isTop100 ? 1 : 0) + (isAnime ? 20 : 10) + (start * 100);
-			if(cashedTop.ContainsKey(casheId)) {
+			if (cashedTop.ContainsKey(casheId)) {
 				return cashedTop[casheId];
 			}
 			else {

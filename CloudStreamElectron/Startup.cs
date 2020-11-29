@@ -17,7 +17,7 @@ namespace CloudStreamElectron
 {
     public class Startup
     {
-        public static bool isElectron = false;
+        public static bool isElectron = false; // TODO CHANGE
 
         public Startup(IConfiguration configuration)
         {
