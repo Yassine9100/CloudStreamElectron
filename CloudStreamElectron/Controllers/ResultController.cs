@@ -140,10 +140,10 @@ namespace CloudStreamElectron.Controllers
 					$"{player} \"{endPath}\" {argu}".Bash(false);
 				}
 				else if (IsWindows) {
-					if(player == "mpv") {
+					if (player == "mpv") {
 						$"{player} \"{endPath}\" {argu}".Cmd(false);
 					}
-					else if(player == "vlc") {
+					else if (player == "vlc") {
 						$"{@"""C:\Program Files\VideoLAN\VLC\vlc.exe"""} \"{endPath}\" {argu}".Cmd(false);
 					}
 				}
@@ -233,7 +233,7 @@ namespace CloudStreamElectron.Controllers
 								name = core.activeMovie.title.name,
 								description = core.activeMovie.title.description,
 								id = core.activeMovie.title.id,
-								posterUrl =GetPoster(poster),
+								posterUrl = GetPoster(poster),
 								rating = core.activeMovie.title.rating,
 							}
 						},
@@ -339,6 +339,8 @@ namespace CloudStreamElectron.Controllers
 				}
 				var mClone = (Movie)m.Copy();
 				mClone.title.hdPosterUrl = CloudStreamCore.ConvertIMDbImagesToHD(mClone.title.hdPosterUrl, null, null, 2);
+				mClone.title.recomended = mClone.title.recomended.Select(t => new Poster() { name = t.name, url = t.url, posterUrl = ConvertIMDbImagesToHD(t.posterUrl, 76, 113, 6) }).ToList();
+
 				var json = JsonConvert.SerializeObject(mClone);
 				json = json[0..^1];
 				json += $",\"Guid\":\"{_g.ToString()}\"}}";

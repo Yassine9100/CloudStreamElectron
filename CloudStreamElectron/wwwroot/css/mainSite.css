@@ -73,6 +73,23 @@ button {
 input {
     font-family: GothamPro;
 }
+
+h3 {
+    width: 96%;
+    text-align: center;
+    border-bottom: 2px solid #c0c0c010;
+    line-height: 0.1em;
+    margin-top:20px;
+    margin-bottom:20px;
+    margin:2%;
+}
+
+    h3 span {
+        background-color: var(--MainBg);
+        padding: 0 10px;
+    }
+
+
 .OverlayPage {
     width: 100%;
     height: 100vh; 

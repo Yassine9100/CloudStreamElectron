@@ -51,6 +51,8 @@ namespace CloudStreamElectron.Controllers
 					//[ValidateAntiForgeryToken]
 		public async Task<string> Search(string search, string guid)
 		{
+			if (search == null || search == "") return "";
+
 			var core = CoreHolder.GetCore(guid);
 			await core.QuickSearch(search, blocking: true);
 

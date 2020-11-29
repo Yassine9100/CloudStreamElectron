@@ -91,7 +91,7 @@
 		var ses = document.getElementById("SeasonSelectBtt");
 
 		$("#AddGrid").show();
-		$("#AddGrid").fadeOut(400);
+		$("#AddGrid").fadeTo(400, 0);
 
 		if (ses != null) {
 			ses.textContent = "Season " + season;
@@ -168,6 +168,8 @@
 				Fade("TitleLabel", title.name);
 				Fade("DescriptLabel", title.description);
 
+				$("#LoadingAll").fadeTo(200, 1);
+
 				currentTitleName = title.name;
 				img.style = "height: 100%; width: 100%;";
 
@@ -190,11 +192,26 @@
 					div.appendChild(ele);
 				}
 
+				//TODO ADD recomended
+				var recStack = document.getElementById("RecStack");
+				var stackInner = "";
+				for (var i = 0; i < data.title.recomended.length; i++) {
+					var rec = data.title.recomended[i];
+					/*name;
+					posterUrl
+					url*/
+					stackInner += `
+						<button class="grid-element hold-poster" onmouseup=\"{loadPage('?url=${rec.url}&name=${rec.name}')\}">
+							<img style="height:213px; width:144px; border-radius: 3px; margin:10px;" src="${rec.posterUrl}">
+						</button>`;
+				}
+				recStack.innerHTML = stackInner;
+				document.getElementById("RecTxt").textContent = "Recommendations";
+
 				// ========================================= SEASONS =========================================
 
 				var seasonDrop = document.getElementById("SeasonDropDown");
 				seasonDrop.innerHTML = "";
-
 
 				for (var i = 0; i < data.title.seasons; i++) {
 					var ele = document.createElement("button");
@@ -678,8 +695,8 @@
 		}
 		if (fadeIn) {
 			grid.innerHTML = innerHtml;
-			$("#AddGrid").hide();
-			$("#AddGrid").fadeIn(400);
+			//$("#AddGrid").hide();
+			$("#AddGrid").fadeTo(400, 1);
 		}
 	}
 
@@ -742,6 +759,8 @@
 
 
 				isMovie = movieType == 3 || movieType == 0;
+				document.getElementById("EpTxt").textContent = isMovie ? "Movie" : "Episodes";
+
 				LoadEpisodes(true);
 			},
 			error: function (xhr) {
@@ -796,11 +815,18 @@
 	</div>
 </div>
 
-<div id="InfoHolder" style="height: 100%;
-		min-width: 1000px;
-		background-color: var(--MainBg);
+
+<div id="InfoHolder" style="		min-width: 1000px;
 		margin: auto;
-		width: 80%">
+		width: 80%;
+		position: relative;
+		height: auto;
+		min-height: 100% !important;
+
+		background-color: var(--MainBg);
+		border-radius: 10px;
+	">
+
 
 	<div class="" onmouseup="window.location = '/'" href="/" style="		cursor: pointer;
 		text-decoration: none;
@@ -888,21 +914,42 @@
 			 </div>-->
 		</div>
 	</div>
-	<div class="grid-container grid-container--fill" style="		width: 100%;
+
+	<div style="opacity:0" id="LoadingAll">
+
+		<h3 style="font-weight: 300; font-size: 20px;"><span id="EpTxt">Loading...</span></h3>
+
+		<div class="grid-container grid-container--fill" style="width: 100%;
 		margin: auto;
 		float: left;
 		position: relative;
-		margin-top: 20px;
+		margin-top: 0px;
+		margin-bottom:30px;
 		display: table;
-		background-color: var(--MainBg);
 		clear: both;
 		display: flex;
 		flex-direction: row;
 		justify-content: center;
 		flex-wrap: wrap;
 	" id="AddGrid">
-	</div>
+		</div>
 
+		<h3 style="font-weight: 300; font-size: 20px;"><span id="RecTxt">Loading...</span></h3>
+
+		<div class="grid-container grid-container--fill" style="		width: 100%;
+		margin: auto;
+		position: relative;
+		margin-top: 0px;
+		margin-bottom: 30px;
+		display: table;
+		clear: both;
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		flex-wrap: wrap;
+	" id="RecStack">
+		</div>
+	</div>
 </div>
 
 <div id="LoadingHolder"></div>
