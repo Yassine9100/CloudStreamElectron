@@ -17,6 +17,7 @@ using CloudStreamForms.Core;
 using System.IO;
 using System.Runtime.InteropServices;
 using static CloudStreamElectron.Controllers.ResultHelper;
+using System.Threading;
 
 namespace CloudStreamElectron.Controllers
 {
@@ -45,25 +46,37 @@ namespace CloudStreamElectron.Controllers
 				return "";
 			}
 		}
-
-		public static string Cmd(this string cmd, bool waitForExit = true)
+		public static void Cmd(this string cmd)
 		{
-			Process process = new Process();
-			process.StartInfo.FileName = "cmd.exe";
-			process.StartInfo.RedirectStandardInput = true;
-			process.StartInfo.RedirectStandardOutput = true;
-			process.StartInfo.CreateNoWindow = true;
-			process.StartInfo.UseShellExecute = false;
-			process.Start();
+			Thread t = new Thread(() => {
+				cmd.CmdD(false);
+			});
+			t.Start();
+		}
 
-			process.StandardInput.WriteLine(cmd);
-			process.StandardInput.Flush();
-			process.StandardInput.Close();
+		public static string CmdD(this string command, bool waitForExit = true)
+		{
+			Console.WriteLine("Start command: " + command);
+			Process cmd = new Process();
+			Console.WriteLine(command);
+			cmd.StartInfo.FileName = "cmd.exe";
+			cmd.StartInfo.RedirectStandardInput = true;
 			if (waitForExit) {
-				process.WaitForExit();
-				return process.StandardOutput.ReadToEnd();
+				cmd.StartInfo.RedirectStandardOutput = true;
+			}
+			cmd.StartInfo.CreateNoWindow = true;
+			cmd.StartInfo.UseShellExecute = false;
+			cmd.Start();
+			cmd.StandardInput.WriteLine(command);
+			cmd.StandardInput.Flush();
+			cmd.StandardInput.Close();
+			if (waitForExit) {
+				cmd.WaitForExit();
+				return cmd.StandardOutput.ReadToEnd();
 			}
 			else {
+				cmd.StandardOutput.Close();
+				cmd.StandardOutput.Dispose();
 				return "";
 			}
 		}
@@ -96,10 +109,9 @@ namespace CloudStreamElectron.Controllers
 			return _s;
 		}
 
-
-		static bool IsLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
-		static bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-		static bool IsOSX = RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+		static readonly bool IsLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+		static readonly bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+		static readonly bool IsOSX = RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
 
 		[Route("LoadPlayer")]
 		[HttpGet]
@@ -133,7 +145,7 @@ namespace CloudStreamElectron.Controllers
 					argu = $"--fullscreen --no-loop vlc://quit";
 				}
 				else if (player == "mpv") {
-					argu = $"--title={(isMovie ? core.activeMovie.title.name : cEpisode.name)}";
+					argu = $"--title=\"{(isMovie ? core.activeMovie.title.name : cEpisode.name)}\"";
 				}
 
 				if (IsLinux) {
@@ -141,11 +153,20 @@ namespace CloudStreamElectron.Controllers
 				}
 				else if (IsWindows) {
 					if (player == "mpv") {
-						$"{player} \"{endPath}\" {argu}".Cmd(false);
+						$"{player} \"{endPath}\" {argu}".Cmd();
 					}
 					else if (player == "vlc") {
-						$"{@"""C:\Program Files\VideoLAN\VLC\vlc.exe"""} \"{endPath}\" {argu}".Cmd(false);
+						/*
+						Process p = new Process() {
+							StartInfo = new ProcessStartInfo() {
+								Arguments = $"\"{endPath}\" {argu}",
+								FileName = @"C:\Program Files\VideoLAN\VLC\vlc.exe",
+							}
+						};
+						p.Start();*/
+						$"{@"""C:\Program Files\VideoLAN\VLC\vlc.exe"""} \"{endPath}\" {argu}".Cmd();
 					}
+					"exit".Cmd();
 				}
 
 				return "true";

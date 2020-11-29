@@ -1,3 +1,9 @@
+taken from https://github.com/ElectronNET/Electron.NET
+
+dotnet tool install ElectronNET.CLI -g
+
 electronize build /target win
-electronize build /target osx /PublishReadyToRun false
-electronize build /target linux /PublishReadyToRun false
+electronize build /target osx
+electronize build /target linux 
+
+add "/PublishReadyToRun false" if you cant compile to the target platform
