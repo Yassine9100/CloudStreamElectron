@@ -56,28 +56,32 @@ namespace CloudStreamElectron.Controllers
 
 		public static string CmdD(this string command, bool waitForExit = true)
 		{
-			Console.WriteLine("Start command: " + command);
-			Process cmd = new Process();
-			Console.WriteLine(command);
-			cmd.StartInfo.FileName = "cmd.exe";
-			cmd.StartInfo.RedirectStandardInput = true;
-			if (waitForExit) {
-				cmd.StartInfo.RedirectStandardOutput = true;
+			try {
+				Console.WriteLine("Start command: " + command);
+				Process cmd = new Process();
+				Console.WriteLine(command);
+				cmd.StartInfo.FileName = "cmd.exe";
+				cmd.StartInfo.RedirectStandardInput = true;
+				if (waitForExit) {
+					cmd.StartInfo.RedirectStandardOutput = true;
+				}
+				cmd.StartInfo.CreateNoWindow = false;
+				cmd.StartInfo.UseShellExecute = false;
+				cmd.Start();
+				cmd.StandardInput.WriteLine(command);
+				//cmd.StandardInput.Flush();
+				//cmd.StandardInput.Close();
+				if (waitForExit) {
+					cmd.WaitForExit();
+					return cmd.StandardOutput.ReadToEnd();
+				}
+				else {
+					return "";
+				}
 			}
-			cmd.StartInfo.CreateNoWindow = true;
-			cmd.StartInfo.UseShellExecute = false;
-			cmd.Start();
-			cmd.StandardInput.WriteLine(command);
-			cmd.StandardInput.Flush();
-			cmd.StandardInput.Close();
-			if (waitForExit) {
-				cmd.WaitForExit();
-				return cmd.StandardOutput.ReadToEnd();
-			}
-			else {
-				cmd.StandardOutput.Close();
-				cmd.StandardOutput.Dispose();
+			catch (Exception _ex) {
 				return "";
+				Console.WriteLine(_ex);
 			}
 		}
 	}
@@ -117,6 +121,7 @@ namespace CloudStreamElectron.Controllers
 		[HttpGet]
 		public async Task<string> LoadPlayer(int episode, string player, string guid)
 		{
+			Console.WriteLine("GOT MSG:::" + guid);
 			try {
 				error("GOT MESSAGE:::::");
 				await Task.Delay(100);
@@ -166,7 +171,6 @@ namespace CloudStreamElectron.Controllers
 						p.Start();*/
 						$"{@"""C:\Program Files\VideoLAN\VLC\vlc.exe"""} \"{endPath}\" {argu}".Cmd();
 					}
-					"exit".Cmd();
 				}
 
 				return "true";

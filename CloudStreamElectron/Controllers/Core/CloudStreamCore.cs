@@ -7854,8 +7854,9 @@ namespace CloudStreamForms.Core
 
 		public DubbedAnimeEpisode GetDubbedAnimeEpisode(string slug, int? eps = null)
 		{
-			string url = "https://bestdubbedanime.com/" + (eps == null ? "movies/jsonMovie" : "xz/v3/jsonEpi") + ".php?slug=" + slug + (eps != null ? ("/" + eps) : "") + "&_=" + UnixTime;
-			string d = DownloadString(url);
+			bool isMovie = eps == null;
+			string url = "https://bestdubbedanime.com/" + (isMovie ? "movies/jsonMovie" : "xz/v3/jsonEpi") + ".php?slug=" + slug + (eps != null ? ("/" + eps) : "") + "&_=" + UnixTime;
+			string d = DownloadString(url, referer: $"https://bestdubbedanime.com/{(isMovie ? "movies/" : "")}{slug}{(isMovie ? "" : $"/{eps}")}");
 			var f = JsonConvert.DeserializeObject<DubbedAnimeSearchRootObject>(d, new JsonSerializerSettings() { NullValueHandling = NullValueHandling.Ignore });
 			if (f.result.error) {
 				return new DubbedAnimeEpisode();

@@ -121,6 +121,16 @@ h3 {
     filter: blur(0px) !important;
 }
 
+.showme {
+    opacity:0;
+    display: none;
+}
+
+.showhim:hover .showme {
+    opacity:1;
+    display: block;
+}
+
 .click-poster {
     cursor:pointer;
     margin: 6px;
@@ -190,7 +200,7 @@ h3 {
 }
 
 .grid-container--fill {
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
 }
 
 #SearchBar {

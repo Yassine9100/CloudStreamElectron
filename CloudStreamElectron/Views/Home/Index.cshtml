@@ -59,10 +59,23 @@
 				var inner = "";
 				for (var i = 0; i < data.length; i++) {
 					var d = data[i];
+					//transform: translateX(155px);
+					/*
+	<div class="grid-element showme" style=" position: absolute; overflow: hidden; scale: 0.99; z-index: 10; border-radius: 3px; transition: all 0.1s; ">
+		<div style="position: absolute; z-index: 11;">
+		    <h4 style="margin: 8px;">${d.name} ${d.rating}</h4>
+
+			<p style="margin: 0px; margin-right:8px;margin-left:8px">${d.descript}</p>
+		</div>
+
+		<img style="height: 213px; width: 200px; -webkit-filter: blur(10px) brightness(50%); scale: 1.7;" src="${d.img}">
+	</div>*/
 					inner += `
-						<button class="grid-element hold-poster" onmouseup=\"{loadPage('?url=${d.id}&name=${d.name}')\}">
-							<img style="height:142px; width:96px; border-radius: 3px; " src="${d.img}">
-						</button>
+<div class= "showhim">
+	<button class="grid-element hold-poster" onmouseup=\"{loadPage('?url=${d.id}&name=${d.name}')\}">
+		<img style="height:213px; width:144px; border-radius: 3px; " src="${d.img}">
+	</button>
+</div>
 					`;
 				}
 				addGrid.innerHTML = inner;
@@ -120,7 +133,7 @@
 	Your browser does not support HTML video.
 </video>-->
 
-<div class="text-center" id="MainDiv" style=" padding-bottom: 40px;" >
+<div class="text-center" id="MainDiv" style=" padding-bottom: 40px;">
 	<h1 class="display-4">Home</h1>
 	<!--<p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>-->
 	<!--  <i class="material-icons" style="padding-top:20px">search</i>-->
