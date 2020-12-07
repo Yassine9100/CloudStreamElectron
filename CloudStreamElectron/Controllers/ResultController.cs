@@ -53,6 +53,21 @@ namespace CloudStreamElectron.Controllers
 			});
 			t.Start();
 		}
+		public static void CmdCommand(this string startOptions, string filename)
+		{
+			try {
+ 				Process cmd = new Process();
+ 				cmd.StartInfo.FileName = filename;
+				cmd.StartInfo.Arguments = startOptions;
+				cmd.StartInfo.UseShellExecute = true;
+				cmd.StartInfo.WorkingDirectory = "c:\\";
+				cmd.Start(); 
+
+			}
+			catch (Exception _ex) {
+				Console.WriteLine(_ex);
+			}
+		}
 
 		public static string CmdD(this string command, bool waitForExit = true)
 		{
@@ -121,9 +136,7 @@ namespace CloudStreamElectron.Controllers
 		[HttpGet]
 		public async Task<string> LoadPlayer(int episode, string player, string guid)
 		{
-			Console.WriteLine("GOT MSG:::" + guid);
 			try {
-				error("GOT MESSAGE:::::");
 				await Task.Delay(100);
 				if (!CloudStreamElectron.Startup.isElectron) return "is not electron";
 				var core = CoreHolder.GetCore(guid);
@@ -158,18 +171,11 @@ namespace CloudStreamElectron.Controllers
 				}
 				else if (IsWindows) {
 					if (player == "mpv") {
-						$"{player} \"{endPath}\" {argu}".Cmd();
+						//$"{player} \"{endPath}\" {argu}".Cmd();
+						$"\"{endPath}\" {argu}".CmdCommand(@"mpv.exe");
 					}
 					else if (player == "vlc") {
-						/*
-						Process p = new Process() {
-							StartInfo = new ProcessStartInfo() {
-								Arguments = $"\"{endPath}\" {argu}",
-								FileName = @"C:\Program Files\VideoLAN\VLC\vlc.exe",
-							}
-						};
-						p.Start();*/
-						$"{@"""C:\Program Files\VideoLAN\VLC\vlc.exe"""} \"{endPath}\" {argu}".Cmd();
+						$"\"{endPath}\" {argu}".CmdCommand(@"C:\Program Files\VideoLAN\VLC\vlc.exe");
 					}
 				}
 

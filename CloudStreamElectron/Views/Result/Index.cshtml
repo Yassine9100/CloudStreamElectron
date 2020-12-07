@@ -9,7 +9,7 @@
 
 
 <script src="/js/download.min.js"></script>
-<script src="~/js/hls.js"></script>
+<!--<script src="~/js/hls.js"></script>-->
 <!--
 <script src="/js/jquery.animate-colors-min.js"></script>-->
 <!--
@@ -411,7 +411,7 @@
 	function PlayEpisode(episode, forceInApp = false, player = "vlc") {
 		SetEpisode(episode, true);
 		if (isElec && !forceInApp) {
-			LoadVlc(episode, player, 0);
+			LoadVlc(episode, player, 0); // CHANGE POS TO SIMULATE ELC
 		}
 		else {
 			return;/*
