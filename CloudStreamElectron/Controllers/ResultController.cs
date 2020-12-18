@@ -46,6 +46,7 @@ namespace CloudStreamElectron.Controllers
 				return "";
 			}
 		}
+
 		public static void Cmd(this string cmd)
 		{
 			Thread t = new Thread(() => {
@@ -53,6 +54,7 @@ namespace CloudStreamElectron.Controllers
 			});
 			t.Start();
 		}
+
 		public static void CmdCommand(this string startOptions, string filename)
 		{
 			try {
@@ -62,7 +64,6 @@ namespace CloudStreamElectron.Controllers
 				cmd.StartInfo.UseShellExecute = true;
 				cmd.StartInfo.WorkingDirectory = "c:\\";
 				cmd.Start(); 
-
 			}
 			catch (Exception _ex) {
 				Console.WriteLine(_ex);
