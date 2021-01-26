@@ -1,9 +1,9 @@
 ﻿using Newtonsoft.Json;
 using System.Collections.Generic;
 
-namespace CloudStreamForms.Core.AnimeProviders
+namespace CloudStreamForms.Core.BaseProviders
 {
-	public class AnimeFeverHelper
+	public class AnimeFeverBaseProvider
 	{
 		public struct AnimeFeverSearchPoster
 		{
@@ -200,7 +200,7 @@ namespace CloudStreamForms.Core.AnimeProviders
 		}
 
 		readonly CloudStreamCore core;
-		public AnimeFeverHelper(CloudStreamCore _core)
+		public AnimeFeverBaseProvider(CloudStreamCore _core)
 		{
 			core = _core;
 		}

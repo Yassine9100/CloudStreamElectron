@@ -115,7 +115,7 @@ public static class App
 public static class Settings
 {
     public static string NativeSubShortName = "Eng";
-    public static bool UseAniList = false;
+    public static bool UseAniList = true;
     public static bool SubtitlesEnabled = false;
     public static bool DefaultDub = true;
     public static bool CacheImdb = true;
@@ -123,6 +123,8 @@ public static class Settings
     public static bool IgnoreSSLCert = true;
     public static bool PremitM3u8Download = false;
     public static bool SubtitlesClosedCaptioning = false;
+    public static bool _IgnoreSSLCert = true;
+    public static int malTimeout = 4000;
 
     public static bool IsProviderActive(string name)
     {

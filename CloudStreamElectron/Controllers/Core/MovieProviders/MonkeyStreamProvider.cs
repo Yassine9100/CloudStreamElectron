@@ -12,8 +12,8 @@ namespace CloudStreamForms.Core.MovieProviders
 		public override object StoreData(bool isMovie, CloudStreamCore.TempThread tempThred)
 		{
 			try {
-				string search = activeMovie.title.name;
-				string year = activeMovie.title.year[0..4];
+				string search = ActiveMovie.title.name;
+				string year = ActiveMovie.title.year[0..4];
 				string d = DownloadString("https://www.monkeystream.net/search?q=" + search);
 				const string lookFor = "<div class=\"movie-title\">";
 				while (d.Contains(lookFor)) {
@@ -37,7 +37,7 @@ namespace CloudStreamForms.Core.MovieProviders
 		{
 			string mainUrl = (string)metadata;
 			if (!mainUrl.IsClean()) return;
-			string d = DownloadString(mainUrl, referer: "https://www.monkeystream.net/search?q=" + activeMovie.title.name, tempThred: tempThred);
+			string d = DownloadString(mainUrl, referer: "https://www.monkeystream.net/search?q=" + ActiveMovie.title.name, tempThred: tempThred);
 			const string lookFor = "?key=";
 			while (d.Contains(lookFor)) {
 				string key = FindHTML(d, lookFor, "\"");

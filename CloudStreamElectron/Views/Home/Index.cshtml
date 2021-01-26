@@ -116,91 +116,42 @@
 
 <body onload="load()">
 </body>
-<!--
-<div id="container">
-	<video controls="" crossorigin="" playsinline="" data-poster="https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-HD.jpg" id="player">
-		<source src="https://storage.googleapis.com/skilful-vertex-287812/CWJIK5TODG44/23a_1599211411_116269.mp4" type="video/mp4">
+<div style="margin-left: 30px;">
+	<div class="Row">
 
-		<track kind="captions" label="English" srclang="en" src="https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-HD.en.vtt" default="">
-		<track kind="captions" label="Français" srclang="fr" src="https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-HD.fr.vtt">
+		<div style="height:50px; margin-top:20px;" class="Column">
+			<img src="~/img/csLogoOnly.png" style="width:190px; margin-top:auto; margin-bottom:auto; margin-right:10px;" />
+			<a class="headerBtt">Movies</a>
+			<a class="headerBtt">Tv-Shows</a>
+			<a class="headerBtt">Anime</a>
+		</div>
+		<div style="width:50%; height:100px;" class="Column">
 
-		<a href="https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-576p.mp4" download="">Download</a>
-	</video>
-</div>-->
-<!--
-<video width="400" data-poster="https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-HD.jpg" controls>
-	<source src="https://storage.googleapis.com/skilful-vertex-287812/CWJIK5TODG44/23a_1599211411_116269.mp4" type="video/mp4">
-	Your browser does not support HTML video.
-</video>-->
-<div id="mySidenav" class="sidenav" style="width:250px;">
-	<img src="~/img/csLogoOnly.png" style="width:190px; margin-left:30px; margin-bottom:20px; margin-top:-30px;" />
-	<h4>Menu</h4>
-	<ul>
-
-		<li>
-			<img src="~/img/bookmarks_white.svg" />
-			<a>Bookmarks</a>
-		</li>
-		<li>
-			<img src="~/img/movie_white.svg" />
-			<a>Movies</a>
-		</li>
-		<li>
-			<img src="~/img/subscriptions_white.svg" />
-			<a>Tv Series</a>
-		</li>
-		<li>
-			<img src="~/img/brush_white.svg" />
-			<a>Anime</a>
-		</li>
-	</ul>
-</div>
-<div id="main" style="margin-left:290px; margin-top:40px;">
-
-	<div class="text-center" id="MainDiv" style=" padding-bottom: 40px;">
-		<!--<h1 class="display-4">Home</h1>-->
-		<!--<p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>-->
-		<!--  <i class="material-icons" style="padding-top:20px">search</i>-->
-
-
-		<input value="" placeholder="Search..." spellcheck="false" autocomplete="off" maxlength="80" id="SearchBar" onfocus="searchFocus(true)" onblur="onBlurSearch()" onchange="searchFunc()" input[type="search" ] onkeyup="searchFunc()" style="margin-left:0%;margin-right:0%;width:70%" />
-		<!--
-			<ul id="gridtype">
-			</ul>
-		-->
-		<!--
-		<ul id="gridtype">
-			<li> <i class="material-icons" id="input_img" style="position:absolute; top:0; left:0; z-index:4; margin-left:5px; margin-top:1px;">search</i></li>
-			<li><input value="" placeholder="Search..." style="position:absolute; top:0; left:0;" spellcheck="false" autocomplete="off" maxlength="80" id="SearchBar" onchange="searchFunc()" onkeyup="searchFunc()" /></li>
-		</ul>
-		-->
-
-		<div style=" width: 50%; margin-left: 25%; margin-right: 25%; position: absolute; transform: translateX(-3px); z-index: 10;">
-			<div style="margin-right: 10px;">
-				<div id="SearchResultsDIV" style="background-color: #303030; border-radius:5px;">
-				</div>
+			<input value="" placeholder="Search..." spellcheck="false" autocomplete="off" maxlength="80" id="SearchBar" onfocus="searchFocus(true)" onblur="onBlurSearch()" onchange="searchFunc()" input[type="search" ] onkeyup="searchFunc()" style="margin-left:0%;margin-right:0%;width:100%" />
+			<div id="SearchResultsDIV" style=" width: 100%; background-color:#303030">
 			</div>
 		</div>
 
+	</div>
 
-		<div id="Top100Grid" style="margin-top:10px;" class="grid-container grid-container--fill">
+	<div id="main" style="margin-top:10px;">
+		<div class="text-center" id="MainDiv" style="padding-bottom: 40px;">
 
+
+			<!--<div style=" width: 50%; margin-left: 25%; margin-right: 25%; position: absolute; transform: translateX(-3px); z-index: 10;">
+				<div style="margin-right: 10px;">
+					<div id="SearchResultsDIV" style="background-color: #303030; border-radius:5px;">
+					</div>
+				</div>
+			</div>-->
+
+
+			<div id="Top100Grid" style="margin-top:10px;" class="grid-container grid-container--fill">
+
+			</div>
 		</div>
-		<!--hidden="hidden"-->
-		<!--<div id="OverlayPage" >
-			<h1 style="text-align:start; font-weight:bold">Iron man</h1>
-			<a style="color: #4257d8; font-size:18px; font-weight:bold;">Rated 7.9</a>
-			<a style="color: #646464; font-size:16px; padding:12px; text-align:center; ">2008</a>
-			<a style="color: #646464; font-size:16px; text-align:center; ">126min</a>
-			<h1 style="text-align:start; font-size:16px;">After being held captive in an Afghan cave, billionaire engineer Tony Stark creates a unique weaponized suit of armor to fight evil. </h1>
-
-		</div>-->
 	</div>
 </div>
-<!--<div>
-
-
-</div>-->
 
 <script>
 

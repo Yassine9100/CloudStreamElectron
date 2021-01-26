@@ -23,7 +23,7 @@ namespace CloudStreamForms.Core.MovieProviders
 
 		void GetLiveMovies123Links(int normalEpisode, int episode, int season, bool isMovie, string provider = "https://c123movies.com", TempThread tempThred = default) // https://movies123.live & https://c123movies.com
 		{
-			string _title = ToDown(activeMovie.title.name, replaceSpace: "-");
+			string _title = ToDown(ActiveMovie.title.name, replaceSpace: "-");
 
 			string _url = (isMovie ? (provider + "/movies/" + _title) : (provider + "/episodes/" + _title + "-season-" + season + "-episode-" + episode));
 
@@ -31,7 +31,7 @@ namespace CloudStreamForms.Core.MovieProviders
 			if (!GetThredActive(tempThred)) { return; };
 			string release = FindHTML(d, "Release:</strong> ", "<");
 			bool succ = true;
-			if (release != activeMovie.title.year.Substring(0, 4)) {
+			if (release != ActiveMovie.title.year.Substring(0, 4)) {
 				succ = false;
 				if (isMovie) {
 					d = DownloadString(_url + "-1");

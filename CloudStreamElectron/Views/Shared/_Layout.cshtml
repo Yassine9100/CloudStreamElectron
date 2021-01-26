@@ -141,7 +141,7 @@
 
 							inner += `
                     <button class="searchRes"  onmouseup=\"{loadPage('?url=${data[i].url}&name=${data[i].name}&year=${data[i].year}')\}">
-						<img style="height:60px; width:40px; border-radius: 3px; float:left; padding-right:3px; scale:1.167;transform: translatex(-6.1px); " src='${data[i].posterUrl}'>
+						<img class="searchResImg" src='${data[i].posterUrl}'>
                         <div>
 							<a style="color:#e6e6e6">${data[i].name} ${((extra == "" || extra == null) ? "" : " - " + extra)}</a>
 							<div>

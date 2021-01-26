@@ -14,7 +14,7 @@ namespace CloudStreamForms.Core.MovieProviders
 
 		public override void LoadLink(object metadata, int episode, int season, int normalEpisode, bool isMovie, TempThread tempThred)
 		{
-			string imdbId = activeMovie.title.id;
+			string imdbId = ActiveMovie.title.id;
 			string random = rng.Next(0, 10000).ToString();
 			string random2 = rng.Next(0, 10000).ToString();
 			string bound = $"----WebKitFormBoundary{random}";
@@ -22,7 +22,7 @@ namespace CloudStreamForms.Core.MovieProviders
 
 			string year = "";
 			try {
-				year = $"&y={activeMovie.title.year[0..4]}";
+				year = $"&y={ActiveMovie.title.year[0..4]}";
 			}
 			catch (Exception) {
 
@@ -74,7 +74,6 @@ namespace CloudStreamForms.Core.MovieProviders
 				while (dSource.Contains(lookFor)) {
 					string link = FindHTML(dSource, lookFor, "\"");
 
-					// DONT USE mixdrop.co, THEY HAVE RECAPTCHA TO GET TOKEN
 					if (link.Contains("googleusercontent")) {
 						AddPotentialLink(normalEpisode, link, "GoogleVideo Files", 13);
 					}

@@ -96,8 +96,8 @@ namespace CloudStreamElectron.Controllers
 				}
 			}
 			catch (Exception _ex) {
-				return "";
 				Console.WriteLine(_ex);
+				return "";
 			}
 		}
 	}
@@ -223,7 +223,7 @@ namespace CloudStreamElectron.Controllers
 					return "no links";
 				}
 			}
-			catch (Exception _ex) {
+			catch {
 				return "";
 			}
 		}
@@ -281,9 +281,9 @@ namespace CloudStreamElectron.Controllers
 			{
 				done = true;
 				episodes = e;
-				core.episodeLoaded -= Core_EpisodesLoaded;
+				core.EpisodeLoaded -= Core_EpisodesLoaded;
 			}
-			core.episodeLoaded += Core_EpisodesLoaded;
+			core.EpisodeLoaded += Core_EpisodesLoaded;
 			core.GetImdbEpisodes(season);
 			while (!done) {
 				await Task.Delay(50);
@@ -304,7 +304,7 @@ namespace CloudStreamElectron.Controllers
 				if (!dubExists && isDub) {
 					isDub = false;
 				}
-				maxEpisodes = core.GetMaxEpisodesInAnimeSeason(season, isDub);
+				maxEpisodes = core.GetMaxEpisodesInAnimeSeason(season, isDub, out _);
 			}
 
 			var json = JsonConvert.SerializeObject(new ResultSeasonData() { Episodes = episodes.GetRange(0, maxEpisodes), dubExists = dubExists, subExists = subExists });
@@ -361,9 +361,9 @@ namespace CloudStreamElectron.Controllers
 					m = e;
 					// e.title.name
 					done = true;
-					core.titleLoaded -= Core_titleLoaded;
+					core.TitleLoaded -= Core_titleLoaded;
 				}
-				core.titleLoaded += Core_titleLoaded;
+				core.TitleLoaded += Core_titleLoaded;
 				core.GetImdbTitle(new Poster() { url = url, name = name, year = year, });
 
 				while (!done) {

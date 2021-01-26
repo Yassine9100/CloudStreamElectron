@@ -15,7 +15,7 @@ namespace CloudStreamForms.Core.MovieProviders
 		public override void LoadLink(object metadata, int episode, int season, int normalEpisode, bool isMovie, TempThread tempThred)
 		{
 			try {
-				string url = "https://www.tvseries.video/series/" + ToDown(activeMovie.title.name, replaceSpace: "-") + "/" + "season-" + season + "-episode-" + episode;
+				string url = "https://www.tvseries.video/series/" + ToDown(ActiveMovie.title.name, replaceSpace: "-") + "/" + "season-" + season + "-episode-" + episode;
 
 				string d = DownloadString(url);
 				string vidId = FindHTML(d, " data-vid=\"", "\"");

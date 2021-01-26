@@ -124,16 +124,21 @@ namespace CloudStreamForms.Core.AnimeProviders
 				}
 				return SubArray(final_key.ToArray(), 0, output);
 			}
+			try {
+				const string KEY = "267041df55ca2b36f2e322d05ee2c9cf"; // imagine asking for the key, this post was made by the js decoder gang
+				var f = System.Convert.FromBase64String(_salted);
+				var salt = SubArray(f, 8, 8);
+				var bytes = System.Text.Encoding.ASCII.GetBytes(KEY);
+				byte[] key_iv = bytes_to_key(bytes, salt, 32 + 16);
+				byte[] key = SubArray(key_iv, 0, 32);
 
-			const string KEY = "LXgIVP&PorO68Rq7dTx8N^lP!Fa5sGJ^*XK";
-			var f = System.Convert.FromBase64String(_salted);
-			var salt = SubArray(f, 8, 8);
-			var bytes = System.Text.Encoding.ASCII.GetBytes(KEY);
-			byte[] key_iv = bytes_to_key(bytes, salt, 32 + 16);
-			byte[] key = SubArray(key_iv, 0, 32);
-
-			byte[] iv = SubArray(key_iv, 32, 16);
-			return FindHTML(DecryptStringFromBytes_Aes(SubArray(f, 16, f.Length - 16), key, iv) + "|", "/", "|").Replace(" ", "%20");
+				byte[] iv = SubArray(key_iv, 32, 16);
+				return FindHTML(DecryptStringFromBytes_Aes(SubArray(f, 16, f.Length - 16), key, iv) + "|", "/", "|").Replace(" ", "%20");
+			}
+			catch (Exception _ex) {
+				error(_ex);
+				return "";
+			}
 		}
 
 		public static string GetHTMLF(string url, bool en = true, string overrideReferer = null)
@@ -259,6 +264,7 @@ namespace CloudStreamForms.Core.AnimeProviders
 			}
 		}
 
+#pragma warning disable CS0649
 		public struct MoeSlug
 		{
 			//public int id { get; set; }
@@ -278,7 +284,7 @@ namespace CloudStreamForms.Core.AnimeProviders
 			// public int hb_id { get; set; }
 			// public string created_at { get; set; }
 			// public string updated_at { get; set; }
-			// public int hidden { get; set; }
+			// public in0t hidden { get; set; }
 			public int? mal_id;
 			public MoeSlug? slug;
 		}
@@ -287,11 +293,6 @@ namespace CloudStreamForms.Core.AnimeProviders
 		{
 			public List<MoeItem> MyArray { get; set; }
 		}
-
-		/// <summary>
-		/// GIVEN MAL ID, RETURN SLUG
-		/// </summary>
-		readonly static Dictionary<int, string> twistMoeSearch = new Dictionary<int, string>();
 
 
 		public class MoeSource
@@ -303,7 +304,12 @@ namespace CloudStreamForms.Core.AnimeProviders
 			// public string created_at { get; set; }
 			// public string updated_at { get; set; }
 		}
+#pragma warning restore CS0649
 
+		/// <summary>
+		/// GIVEN MAL ID, RETURN SLUG
+		/// </summary>
+		readonly static Dictionary<int, string> twistMoeSearch = new Dictionary<int, string>();
 		List<MoeSource> GetSources(string slug)
 		{
 			if (openToken == "" || tokenCook == "") { Setup(); }
@@ -318,11 +324,13 @@ namespace CloudStreamForms.Core.AnimeProviders
 		{
 			if (isFetching) return;
 			if (openToken != "" && tokenCook != "") return;
-			Thread t = new Thread(() => {
-				Thread.Sleep(5000);
-				Setup();
-			});
-			t.Start();
+			if (Settings.IsProviderActive(Name)) {
+				Thread t = new Thread(() => {
+					Thread.Sleep(1000);
+					Setup();
+				});
+				t.Start();
+			}
 		}
 
 		public override string Name => "Twist";
@@ -345,19 +353,24 @@ namespace CloudStreamForms.Core.AnimeProviders
 
 		public override void LoadLink(string episodeLink, int episode, int normalEpisode, TempThread tempThred, object extraData, bool isDub)
 		{
-			string source = FetchMoeUrlFromSalted(episodeLink);
-			if (source == "") return;
-			string url = "https://twist.moe/" + source;
+			try {
+				string source = FetchMoeUrlFromSalted(episodeLink);
+				if (source == "") return;
+				//string url = "https://twist.moe/" + source;
 
-			AddPotentialLink(normalEpisode, new BasicLink() {
-				referer = extraData.ToString(),
-				originSite = Name,
-				isAdvancedLink = true,
-				name = "Twist.Moe",
-				priority = 10,
-				canNotRunInVideoplayer = true,
-				baseUrl = "https://twist.moe/" + source // "https://twistcdn.bunny.sh/" + source
-			});
+				AddPotentialLink(normalEpisode, new BasicLink() {
+					referer = extraData.ToString(),
+					originSite = Name,
+					isAdvancedLink = true,
+					name = "Twist.Moe",
+					priority = 10,
+					canNotRunInVideoplayer = true,
+					baseUrl = "https://twistcdn.bunny.sh/" + source
+				});
+			}
+			catch (Exception _ex) {
+				error(_ex);
+			}
 		}
 	}
 }

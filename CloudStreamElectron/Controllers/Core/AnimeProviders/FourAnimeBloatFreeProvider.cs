@@ -32,7 +32,7 @@ namespace CloudStreamForms.Core.AnimeProviders
 		public override object StoreData(string year, TempThread tempThred, MALData malData)
 		{
 			try {
-				string search = activeMovie.title.name;
+				string search = ActiveMovie.title.name;
 				string data = $"action=ajaxsearchlite_search&aslp={search}&asid=1&options=qtranslate_lang%3D0%26set_intitle%3DNone%26customset%255B%255D%3Danime";
 
 				string d = core.PostRequest("https://4anime.to/wp-admin/admin-ajax.php", "https://4anime.to/", data);
@@ -87,7 +87,7 @@ namespace CloudStreamForms.Core.AnimeProviders
 
 						bool isSub = d.Contains("/language/subbed"); // There is some dubbed anime
 
-						if ((isSub && !setData.subExists) || (!isSub && !setData.dubExists)) { // To prevent duplicates, first result if often right
+						if ((isSub && !setData.SubExists) || (!isSub && !setData.DubExists)) { // To prevent duplicates, first result if often right
 							try {
 								var doc = new HtmlAgilityPack.HtmlDocument();
 								doc.LoadHtml(d);

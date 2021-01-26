@@ -40,7 +40,7 @@ namespace CloudStreamForms.Core.MovieProviders
 		public override object StoreData(bool isMovie, TempThread tempThred)
 		{
 			try {
-				string rinput = ToDown(activeMovie.title.name, replaceSpace: "+");
+				string rinput = ToDown(ActiveMovie.title.name, replaceSpace: "+");
 				string yesmovies = $"{SiteUrl}/search/?keyword={rinput.Replace("+", "-")}";
 
 				string d = DownloadString(yesmovies, tempThred);
@@ -69,7 +69,7 @@ namespace CloudStreamForms.Core.MovieProviders
 					string imdbData = FindHTML(_d, "IMDb: ", "<").Replace("\n", "").Replace(" ", "").Replace("	", "");
 					//  string year = FindHTML(_d, "<div class=\"jt-info\">", "<").Replace("\n", "").Replace(" ", "").Replace("	", "").Replace("	", "");
 
-					string s1 = activeMovie.title.rating;
+					string s1 = ActiveMovie.title.rating;
 					string s2 = imdbData;
 					if (s2.ToLower() == "n/a") {
 						continue;
@@ -81,7 +81,7 @@ namespace CloudStreamForms.Core.MovieProviders
 					int i1 = int.Parse(s1.Replace(".", ""));
 					int i2 = int.Parse(s2.Replace(".", ""));
 					//activeMovie.title.year.Substring(0, 4) == year
-					if (ToDown(activeMovie.title.name, replaceSpace: "") == ToDown(realtitle, replaceSpace: "") && (i1 == i2 || i1 == i2 - 1 || i1 == i2 + 1)) {
+					if (ToDown(ActiveMovie.title.name, replaceSpace: "") == ToDown(realtitle, replaceSpace: "") && (i1 == i2 || i1 == i2 - 1 || i1 == i2 + 1)) {
 						yesmoviessSeasonDatas.Add(new YesmoviessSeasonData() { url = movieUrl, id = seasonData });
 					}
 				}

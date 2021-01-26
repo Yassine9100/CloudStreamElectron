@@ -1,6 +1,7 @@
 ﻿
 :root {
-	--mainBlueBG: #0f1925;
+	--whiteBorder : #e6e6e6;
+	--mainBlueBG: #111; /*0f1925;;*/
 	--mainBlackBg: #13131b;
 	--mainUTxt: #6a6a6a;
 	--mainTxt: fbfbfc;
@@ -157,6 +158,23 @@ h3 {
 	}
 
 
+.headerBtt {
+	background-color: #00000000;
+	border-radius: 20px;
+	padding: 10px;
+	color: var(--mainUTxt);
+	outline: none;
+	border: none;
+	cursor: pointer;
+	margin-top: auto;
+	margin-bottom: auto;
+	transition: all 0.1s !important;
+}
+
+	.headerBtt:hover {
+		color: var(--mainTxt);
+	}
+
 .OverlayPage {
 	width: 100%;
 	height: 100vh;
@@ -168,11 +186,11 @@ h3 {
 }
 
 .blur-on {
-	-webkit-filter: blur(5px);
+	/*	-webkit-filter: blur(5px);
 	-moz-filter: blur(5px);
 	-o-filter: blur(5px);
 	-ms-filter: blur(5px);
-	filter: blur(5px);
+	filter: blur(5px);*/
 	-webkit-transition: all 1s linear;
 	transition: all 1s linear;
 	-moz-transition: all 1s linear;
@@ -272,6 +290,15 @@ h3 {
 	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
 }
 
+.Row {
+	display: table;
+	width: 100%; /*Optional*/
+	table-layout: fixed; /*Optional*/
+	border-spacing: 10px; /*Optional*/
+}
+.Column {
+	display: table-cell;
+}
 #SearchBar {
 	/*  backface-visibility: hidden;*/
 	/*background-color: #22222222;*/
@@ -284,7 +311,7 @@ h3 {
 	/* border: solid;*/
 	border: solid;
 	border-color: #e6e6e600;
-	border-radius: 3px;
+	border-radius: 0px;
 	padding: 9px;
 	margin-bottom: 2px;
 	font-size: 16px;
@@ -301,17 +328,7 @@ h3 {
 }
 
 	#SearchBar:focus {
-		border-color: #e6e6e690;
-		/*        border-radius: 0px !important;
-        border-color: #e6e6e6 !important;
-        transition: border-color 0.1s linear !important;*/
-		/*    border: #e6e6e6 solid 3px !important;*/
-		/* transition: border-color 0.1s linear;
-        border-color: #303F9F ;*/ /*#829eff;*/
-		/*
-        transition: transform 0.1s linear;
-        transform: translateY(-3px);
-        box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.6);*/
+		border-color: var(--whiteBorder);
 	}
 
 	#SearchBar:hover {
@@ -432,7 +449,7 @@ h3 {
 	margin-bottom: 2px;
 	border: solid;
 	border-color: transparent;
-	border-radius: 3px;
+	border-radius: 0px;
 	text-align: start;
 	height: 70px;
 	font-size: 16px;
@@ -447,10 +464,11 @@ h3 {
 		/* border-radius: 0px;
         transition: border-color 0.05s linear;
         border-color: #e6e6e6;*/
-		-webkit-transform: scale(0.99);
-		scale: 0.99;
+		/*-webkit-transform: scale(0.99);
+		scale: 0.99;*/
 		/* opacity: 0.8;*/
 		background-color: #111;
+		border-color:var(--whiteBorder);
 		/*transition: opacity 0.05s linear;*/
 		transition: scale 0.05s linear;
 		transition: -webkit-transform 0.05s linear;
@@ -458,13 +476,22 @@ h3 {
 	}
 
 	.searchRes:active {
-		-webkit-transform: scale(0.99);
-		scale: 0.99;
+		/*-webkit-transform: scale(0.99);
+		scale: 0.99;*/
 		/* opacity: 0.8;*/
 		background-color: #111;
 		transition: scale 0.05s linear;
 		transition: -webkit-transform 0.05s linear;
 	}
+.searchResImg {
+	height: 60px;
+	width: 40px;
+	border-radius: 0px;
+	float: left;
+	padding-right: 3px;
+	scale: 1;
+	transform: translatex(-6.1px);
+}
 
 .hold-poster {
 	background-color: Transparent;

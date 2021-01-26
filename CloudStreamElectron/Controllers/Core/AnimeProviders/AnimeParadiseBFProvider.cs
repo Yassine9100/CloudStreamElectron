@@ -19,7 +19,7 @@ namespace CloudStreamForms.Core.AnimeProviders
 		{
 			try {
 				string d = "";
-#pragma warning disable 
+#pragma warning disable
 				if (!IsNewApi) {
 					string main = DownloadString(episodeLink);
 					if (main == "") return;
@@ -47,6 +47,7 @@ namespace CloudStreamForms.Core.AnimeProviders
 			}
 		}
 
+#pragma warning disable CS0649
 		[System.Serializable]
 		public struct AnimeParadiseVideoFile
 		{
@@ -54,6 +55,7 @@ namespace CloudStreamForms.Core.AnimeProviders
 			public string label;
 			public string type;
 		}
+#pragma warning restore CS0649
 
 		[System.Serializable]
 		struct AnimeParadiseData
@@ -113,7 +115,7 @@ namespace CloudStreamForms.Core.AnimeProviders
 			List<AnimeParadiseData> data = (List<AnimeParadiseData>)storedData;
 			NonBloatSeasonData setData = new NonBloatSeasonData() { dubEpisodes = new List<string>(), subEpisodes = new List<string>() };
 			foreach (var subData in data) {
-				if ((setData.dubExists && subData.isDub) || (setData.subExists && !subData.isDub)) continue;
+				if ((setData.DubExists && subData.isDub) || (setData.SubExists && !subData.isDub)) continue;
 
 				if (subData.season == ms.season &&
 					(ToLowerAndReplace(ms.name, false).StartsWith(ToLowerAndReplace(subData.name, false)) ||

@@ -13,13 +13,14 @@ namespace CloudStreamForms.Core.AnimeProviders
 
 		public override string Name => "9Anime";
 
+		/*
 		[System.Serializable]
 		public struct NineAnimeEpisodeData
 		{
 			public int ep;
 			public string href;
 			public string id;
-		}
+		}*/
 
 		const string NineAnimeSite = "https://www12.9anime.to";
 
@@ -86,6 +87,7 @@ namespace CloudStreamForms.Core.AnimeProviders
 			//https://mcloud.to/info/jwk993?key=de4a9ac8a73cd053b7feafaceaefef71d1ced4534285f32435edea5b6a4f3aba&site=www12.9anime.to&autostart=true
 		}
 
+		/*
 		public void LoadLink2(string episodeLink, int episode, int normalEpisode, TempThread tempThred, object extraData, bool isDub)
 		{
 			string request = episodeLink.Replace(NineAnimeSite + "/watch/", "") + "/"; // /xrrj358";
@@ -122,7 +124,7 @@ namespace CloudStreamForms.Core.AnimeProviders
 
 				foreach (var selectors in subData.QuerySelectorAll("ul > li > a")) {
 					string subId = selectors.GetAttributeValue("ndata-id", "");
-					string subEp = selectors.GetAttributeValue("ndata-base", "");
+					//string subEp = selectors.GetAttributeValue("ndata-base", "");
 					string href = selectors.GetAttributeValue("nnhref", "");
 					int realEp = int.Parse(selectors.InnerText);
 					var storeData = new NineAnimeEpisodeData() {
@@ -167,7 +169,7 @@ namespace CloudStreamForms.Core.AnimeProviders
 			}
 
 		}
-
+		*/
 		public override object StoreData(string year, TempThread tempThred, MALData malData)
 		{
 			return Search(malData.engName);
@@ -184,12 +186,12 @@ namespace CloudStreamForms.Core.AnimeProviders
 			foreach (var subData in data) {
 				if (subData.names.Split(' ').Contains(ms.japName) || subData.title == ms.engName) {
 					bool isDub = subData.isDub;
-					if (isDub && !setData.dubExists) {
+					if (isDub && !setData.DubExists) {
 						for (int i = 1; i <= subData.maxEp; i++) {
 							setData.dubEpisodes.Add(subData.href);
 						}
 					}
-					else if (!setData.subExists) {
+					else if (!setData.SubExists) {
 						for (int i = 1; i <= subData.maxEp; i++) {
 							setData.subEpisodes.Add(subData.href);
 						}
@@ -233,7 +235,6 @@ namespace CloudStreamForms.Core.AnimeProviders
 						if (maxEp != 0) { // IF NOT MOVIE 
 							string otherNames = FindHTML(_d, "<label>Other names:</label>\n            <span>", "<").Replace("  ", "").Replace("\n", "").Replace(";", "");
 							string title = FindHTML(_d, "data-jtitle=\"", "\"");
-							print(maxEp + "|" + title + "|" + otherNames.FString());
 							bool isDub = title.Contains("(Dub)");
 							searchData.Add(new NineAnimeDataSearch() { isDub = isDub, maxEp = maxEp, href = href, names = otherNames, title = title.Replace(" (Dub)", "").Replace("  ", "") });
 						}

@@ -16,10 +16,10 @@ namespace CloudStreamForms.Core.MovieProviders
 		public override object StoreData(bool isMovie, TempThread tempThred)
 		{
 			try {
-				var list = TheMovieHelper.SearchQuary(activeMovie.title.name, core);
+				var list = TheMovieHelper.SearchQuary(ActiveMovie.title.name, core);
 				if (!GetThredActive(tempThred)) { return null; }; // COPY UPDATE PROGRESS
-				MovieType mType = activeMovie.title.movieType;
-				string compare = ToDown(activeMovie.title.name, true, "");
+				MovieType mType = ActiveMovie.title.movieType;
+				string compare = ToDown(ActiveMovie.title.name, true, "");
 				var watchMovieSeasonsData = new Dictionary<int, string>();
 
 				if (mType.IsMovie()) {

@@ -35,12 +35,12 @@ namespace CloudStreamForms.Core.AnimeProviders
 			foreach (var subData in data) {
 				if (subData.title.Contains(ms.japName)) {
 					bool isDub = subData.isDub;
-					if (isDub && !setData.dubExists) {
+					if (isDub && !setData.DubExists) {
 						for (int i = 1; i <= subData.maxEp; i++) {
 							setData.dubEpisodes.Add(subData.href + i);
 						}
 					}
-					else if (!setData.subExists) {
+					else if (!setData.SubExists) {
 						for (int i = 1; i <= subData.maxEp; i++) {
 							setData.subEpisodes.Add(subData.href + i);
 						}

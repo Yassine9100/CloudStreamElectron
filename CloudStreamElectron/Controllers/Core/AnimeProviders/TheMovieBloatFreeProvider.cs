@@ -74,7 +74,7 @@ namespace CloudStreamForms.Core.AnimeProviders
 		}
 		public override object StoreData(string year, TempThread tempThred, MALData malData)
 		{
-			var list = TheMovieHelper.SearchQuary(activeMovie.title.name, core);
+			var list = TheMovieHelper.SearchQuary(ActiveMovie.title.name, core);
 			if (!GetThredActive(tempThred)) { return null; }; // COPY UPDATE PROGRESS
 			return list;
 		}

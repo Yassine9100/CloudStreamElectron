@@ -9,11 +9,12 @@ namespace CloudStreamForms.Core
 {
 	public class BlotFreeProvider
 	{
+		[System.Serializable]
 		public struct NonBloatSeasonData
 		{
 			public string name; // ID OF PROVIDER
-			public bool subExists => subEpisodes != null && subEpisodes.Where(t => t.IsClean()).Count() > 0;
-			public bool dubExists => dubEpisodes != null && dubEpisodes.Where(t => t.IsClean()).Count() > 0;
+			public bool SubExists => subEpisodes != null && subEpisodes.Where(t => t.IsClean()).Count() > 0;
+			public bool DubExists => dubEpisodes != null && dubEpisodes.Where(t => t.IsClean()).Count() > 0;
 			public List<string> subEpisodes;
 			public List<string> dubEpisodes;
 			public object extraData;
@@ -23,15 +24,15 @@ namespace CloudStreamForms.Core
 		{
 			public BloatFreeMovieProvider(CloudStreamCore _core) : base(_core) { }
 
-			static object metadataLock = new object();
+			static readonly object metadataLock = new object();
 
 			public override void FishMainLinkTSync(TempThread tempThread)
 			{
 				if (!TypeCheck()) return;
-				object storedData = NullMetadata ? null : StoreData(activeMovie.title.IsMovie, tempThread);
+				object storedData = NullMetadata ? null : StoreData(ActiveMovie.title.IsMovie, tempThread);
 				if (storedData == null && !NullMetadata) return;
 				lock (metadataLock) {
-					if (activeMovie.title.movieMetadata == null) {
+					if (ActiveMovie.title.movieMetadata == null) {
 						core.activeMovie.title.movieMetadata = new List<MovieMetadata>();
 					}
 					core.activeMovie.title.movieMetadata.Add(new MovieMetadata() { name = Name, metadata = storedData });
@@ -41,15 +42,15 @@ namespace CloudStreamForms.Core
 			public override void LoadLinksTSync(int episode, int season, int normalEpisode, bool isMovie, TempThread tempThred)
 			{
 				if (!TypeCheck()) return;
-				object data = GetData(activeMovie.title, out bool suc);
+				object data = GetData(ActiveMovie.title, out bool suc);
 				if (suc) {
-					LoadLink(data, episode, season, normalEpisode, activeMovie.title.IsMovie, tempThred);
+					LoadLink(data, episode, season, normalEpisode, ActiveMovie.title.IsMovie, tempThred);
 				}
 			}
 
 			bool TypeCheck()
 			{
-				return (activeMovie.title.movieType == MovieType.AnimeMovie && HasAnimeMovie) || (activeMovie.title.movieType == MovieType.Movie && HasMovie) || (activeMovie.title.movieType == MovieType.TVSeries && HasTvSeries);
+				return (ActiveMovie.title.movieType == MovieType.AnimeMovie && HasAnimeMovie) || (ActiveMovie.title.movieType == MovieType.Movie && HasMovie) || (ActiveMovie.title.movieType == MovieType.TVSeries && HasTvSeries);
 			}
 
 			public virtual bool HasMovie => true;
@@ -59,7 +60,7 @@ namespace CloudStreamForms.Core
 
 			object GetData(Title data, out bool suc)
 			{
-				var list = data.movieMetadata.Where(t => t.name == Name).ToList();
+				var list = data.movieMetadata.Where(t => (string)t.name == Name).ToList();
 				suc = list.Count > 0;
 				return (suc ? list[0] : new MovieMetadata()).metadata;
 			}
@@ -87,11 +88,11 @@ namespace CloudStreamForms.Core
 			{
 				int count = 0;
 				try {
-					for (int q = 0; q < activeMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
-						var list = activeMovie.title.MALData.seasonData[currentSeason].seasons[q].nonBloatSeasonData.Where(t => t.name == Name).ToList();
+					for (int q = 0; q < ActiveMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
+						var list = ActiveMovie.title.MALData.seasonData[currentSeason].seasons[q].nonBloatSeasonData.Where(t => t.name == Name).ToList();
 						if (list.Count > 0) {
 							var ms = list[0];
-							if ((ms.dubExists && isDub) || (ms.subExists && !isDub)) {
+							if ((ms.DubExists && isDub) || (ms.SubExists && !isDub)) {
 								List<string> episodes = isDub ? ms.dubEpisodes : ms.subEpisodes;
 								int maxCount = 0;
 								for (int i = 0; i < episodes.Count; i++) {
@@ -121,8 +122,8 @@ namespace CloudStreamForms.Core
 			{
 				var _data = GetData(data, out bool suc);
 				if (suc) {
-					dub = _data.dubExists;
-					sub = _data.subExists;
+					dub = _data.DubExists;
+					sub = _data.SubExists;
 				}
 				else {
 					dub = false;
@@ -146,25 +147,26 @@ namespace CloudStreamForms.Core
 				print("NDNDNDNND;;; " + Name + "|" + year + "|" + malData.engName);
 				object storedData = NullMetadata ? null : StoreData(year, tempThred, malData);
 				if (storedData == null && !NullMetadata) return;
-				for (int i = 0; i < activeMovie.title.MALData.seasonData.Count; i++) {
-					for (int q = 0; q < activeMovie.title.MALData.seasonData[i].seasons.Count; q++) {
+				for (int i = 0; i < ActiveMovie.title.MALData.seasonData.Count; i++) {
+					for (int q = 0; q < ActiveMovie.title.MALData.seasonData[i].seasons.Count; q++) {
 						try {
 							MALSeason ms;
 							lock (_lock) {
-								ms = activeMovie.title.MALData.seasonData[i].seasons[q];
+								ms = ActiveMovie.title.MALData.seasonData[i].seasons[q];
 								ms.season = i;
+								ms.part = q + 1;
 							}
 
 							NonBloatSeasonData data = GetSeasonData(ms, tempThred, year, storedData);
 							data.name = Name;
 
 							lock (_lock) {
-								ms = activeMovie.title.MALData.seasonData[i].seasons[q];
+								ms = ActiveMovie.title.MALData.seasonData[i].seasons[q];
 								if (ms.nonBloatSeasonData == null) {
 									ms.nonBloatSeasonData = new List<NonBloatSeasonData>();
 								}
 								ms.nonBloatSeasonData.Add(data);
-								activeMovie.title.MALData.seasonData[i].seasons[q] = ms;
+								ActiveMovie.title.MALData.seasonData[i].seasons[q] = ms;
 							}
 						}
 						catch (Exception _ex) {
@@ -185,9 +187,9 @@ namespace CloudStreamForms.Core
 					if ((isDub && !HasDub) || (!isDub && !HasSub)) return;
 
 					int currentep = 0;
-					print("DS::::: " + activeMovie.title.MALData.seasonData[season].seasons.Count);
-					for (int q = 0; q < activeMovie.title.MALData.seasonData[season].seasons.Count; q++) {
-						var ms = GetData(activeMovie.title.MALData.seasonData[season].seasons[q], out bool suc);
+					print("DS::::: " + ActiveMovie.title.MALData.seasonData[season].seasons.Count);
+					for (int q = 0; q < ActiveMovie.title.MALData.seasonData[season].seasons.Count; q++) {
+						var ms = GetData(ActiveMovie.title.MALData.seasonData[season].seasons[q], out bool suc);
 						if (suc) {
 							int subEp = episode - currentep; //episode - currentep;
 							if ((isDub ? ms.dubEpisodes : ms.subEpisodes) != null) {
@@ -344,69 +346,5 @@ namespace CloudStreamForms.Core
 		{
 			return s != null && s != "";
 		}
-
-
-		static readonly List<Type> types = new List<Type>() { typeof(decimal), typeof(int), typeof(string), typeof(bool), typeof(double), typeof(ushort), typeof(ulong), typeof(uint), typeof(short), typeof(short), typeof(char), typeof(long), typeof(float), };
-
-		public static string FString(this object o, string _s = "")
-		{
-			return "";
-#if RELEASE
-			return "";
-#endif
-#if DEBUG
-			if (o == null) {
-				return "Null";
-			}
-			Type valueType = o.GetType();
-
-			if (o is IList) {
-				IList list = (o as IList);
-				string s = valueType.Name + " {";
-				for (int i = 0; i < list.Count; i++) {
-					s += "\n	" + _s + i + ". " + list[i].FString(_s + "	");
-				}
-				return s + "\n" + _s + "}";
-			}
-
-
-			if (!types.Contains(valueType) && !valueType.IsArray && !valueType.IsEnum) {
-				string s = valueType.Name + " {";
-				foreach (var field in valueType.GetFields()) {
-					s += ("\n	" + _s + field.Name + " => " + field.GetValue(o).FString(_s + "	"));
-				}
-				return s + "\n" + _s + "}";
-			}
-			else {
-				if (valueType.IsArray) {
-					int _count = 0;
-					var enu = ((o) as IEnumerable).GetEnumerator();
-					string s = valueType.Name + " {";
-					while (enu.MoveNext()) {
-						s += "\n	" + _count + ". " + enu.Current.FString(_s + "	");
-						_count++;
-					}
-					return s + "\n" + _s + "}";
-				}
-				else if (valueType.IsEnum) {
-					return valueType.GetEnumName(o);
-				}
-				else {
-					return o.ToString();
-				}
-			}
-#endif
-
-		}
-
-		public static string RString(this object o)
-		{
-			string s = "VALUE OF: ";
-			foreach (var field in o.GetType().GetFields()) {
-				s += ("\n" + field.Name + " => " + field.GetValue(o).ToString());
-			}
-			return s;
-		}
-
 	}
 }

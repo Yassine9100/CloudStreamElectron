@@ -18,14 +18,14 @@ namespace CloudStreamForms.Core.MovieProviders
 
 		public override void LoadLink(object metadata, int episode, int season, int normalEpisode, bool isMovie, TempThread tempThred)
 		{
-			string find = activeMovie.title.name.ToLower() + (activeMovie.title.movieType == MovieType.TVSeries ? "-season-" + season : "");
+			string find = ActiveMovie.title.name.ToLower() + (ActiveMovie.title.movieType == MovieType.TVSeries ? "-season-" + season : "");
 			find = find.Replace("\'", "-");
 			Regex rgx = new Regex("[^a-zA-Z0-9 -]");
 			find = rgx.Replace(find, "");
 
 			find = find.Replace(" - ", "-").Replace(" ", "-");
 
-			if (activeMovie.title.movieType == MovieType.TVSeries) { // ADD CORRECT FORMAT; https://gomostream.com/show/game-of-thrones/01-01
+			if (ActiveMovie.title.movieType == MovieType.TVSeries) { // ADD CORRECT FORMAT; https://gomostream.com/show/game-of-thrones/01-01
 				find = find.Replace("-season-", "/");
 
 				for (int i = 0; i < 10; i++) {
@@ -47,7 +47,6 @@ namespace CloudStreamForms.Core.MovieProviders
 			DownloadGomoSteam(gomoUrl, tempThred, normalEpisode);
 		}
 
-
 		/// <summary>
 		/// GET GOMOSTEAM SITE MIRRORS
 		/// </summary>
@@ -66,7 +65,7 @@ namespace CloudStreamForms.Core.MovieProviders
 							d = DownloadString(url, tempThred, 2); if (!GetThredActive(tempThred)) { return; }; // COPY UPDATE PROGRESS
 						}
 						catch (System.Exception _ex) {
-							error("Error gogo");
+							error("Error gogo" + _ex);
 						}
 					}
 

@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -21,6 +22,18 @@ namespace CloudStreamForms.Core
 	[Serializable]
 	public class CloudStreamCore : ICloneable
 	{
+		// =================================== DONT USE ===================================
+		// www2.himovies.to : recaptcha
+		// fsapi.xyz, : captcha
+		// mixdrop.co : recaptcha for token
+		// tinyzonetv : recaptcha
+		// https://projectfreetv.fun/ : recaptcha
+		// https://www1.moviesjoy.net/search/ or https://moviesjoy.to : recaptcha for link loading
+		// https://gostream.site/iron-man/ : DDOS protecton
+		// 9anime.to : IP BANNED and captca (I Think)
+		// dood.watch : recaptcha for token
+		// abcvideo.cc : recaptcha, dev tool block, ip block
+		// ================================================================================
 
 		public static bool[] isAnimeProviderEnabled;
 		public static bool[] isMovieProviderEnabled;
@@ -29,12 +42,13 @@ namespace CloudStreamForms.Core
 		{
 			coreCreation = DateTime.Now;
 			// INACTIVE // new DubbedAnimeNetProvider(this)
+
 			animeProviders = new IAnimeProvider[] {
 				new TwistMoeBloatFreeProvider(this),
 				new AnimeFeverBloatFreeProvider(this),
 				new GogoAnimeProvider(this),
-				new KickassAnimeProvider(this),
-				new DubbedAnimeProvider(this),
+				//new KickassAnimeProvider(this), // Cloudflare ?
+				new DubbedAnimeBFProvider(this),
 				new AnimeFlixProvider(this),
 				new AnimekisaProvider(this),
 				new KissFreeAnimeProvider(this),
@@ -45,7 +59,9 @@ namespace CloudStreamForms.Core
               //  new NineAnimeBloatFreeProvider(this), // Link extraction
 				new FourAnimeBloatFreeProvider(this),
 				new AnimeParadiseBFProvider(this),
-				new ShiroBFProvider(this),
+				new ShiroBFProvider(this,"https://www.dubbedanime.vip","DubbedVip"),
+				new ShiroBFProvider(this,"https://shiro.is","Shiro"),
+				new YugenaniBFProvider(this),
 			};
 			movieProviders = new IMovieProvider[] {
 				new FilesClubProvider(this),
@@ -60,8 +76,12 @@ namespace CloudStreamForms.Core
 				new DubbedAnimeMovieProvider(this),
 				new TheMovieMovieBFProvider(this),
 				new MonkeyStreamProvider(this),
-				new KickassMovieProvider(this),
-				new LookmovieProvider(this)
+				//new KickassMovieProvider(this), // Cloudflare ?
+				new LookmovieProvider(this),
+				new HdmProvider(this),
+				new ShiroMovieProvider(this,"https://www.dubbedanime.vip","DubbedVip"),
+				new ShiroMovieProvider(this,"https://shiro.is","Shiro"),
+				new Embed2Provider(this),
 			};
 		}
 
@@ -79,10 +99,9 @@ namespace CloudStreamForms.Core
 		public const bool SEARCH_FOR_UPDATES_ENABLED = true;
 
 		public const bool INLINK_SUBTITLES_ENABLED = false;
-		public static bool globalSubtitlesEnabled { get { return Settings.SubtitlesEnabled; } }
+		public static bool GlobalSubtitlesEnabled { get { return Settings.SubtitlesEnabled; } }
 		public const bool GOMOSTEAM_ENABLED = true;
 		public const bool SUBHDMIRROS_ENABLED = true;
-		public const bool FMOVIES_ENABLED = false;
 		public const bool BAN_SUBTITLE_ADS = true;
 
 		public const bool PLAY_SELECT_ENABLED = false;
@@ -97,7 +116,7 @@ namespace CloudStreamForms.Core
 		public const bool REPLACE_IMDBNAME_WITH_POSTERNAME = true;
 		public static double posterRezMulti = 1.0;
 		public const string GOMOURL = "gomo.to";
-		public static string[] CertExeptSites = new string[] {
+		public static readonly string[] CertExeptSites = new string[] {
 			".gogoanime.",
 			".mp4upload.",
 			"fvs.io",
@@ -138,13 +157,6 @@ namespace CloudStreamForms.Core
 
 		[Serializable]
 		public enum PosterType { Imdb, Raw }
-
-		[Serializable]
-		public struct FMoviesData
-		{
-			public string url;
-			public int season;
-		}
 
 		readonly Dictionary<int, int> tokens = new Dictionary<int, int>();
 		readonly object tokenLock = new object();
@@ -257,15 +269,16 @@ namespace CloudStreamForms.Core
 			public string genres;
 			public string descript;
 			public int place;
+			public string year;
 			public List<int> contansGenres;
 		}
 
 		[Serializable]
 		public struct Trailer
 		{
-			public string Name { get; set; }
-			public string Url { get; set; }
-			public string PosterUrl { get; set; }
+			public string Name;
+			public string Url;
+			public string PosterUrl;
 		}
 
 		[Serializable]
@@ -297,6 +310,7 @@ namespace CloudStreamForms.Core
 		{
 			public int length;
 			public int season;
+			public int part;
 			public string malUrl;
 			public string aniListUrl;
 			public int MalId {
@@ -331,11 +345,40 @@ namespace CloudStreamForms.Core
 			public DubbedAnimeNetData dubbedAnimeNetData;
 			public AnimekisaData animekisaData;
 			public AnimeDreamData animedreamData;
-			public WatchMovieAnimeData watchMovieAnimeData;
 			public KissanimefreeData kissanimefreeData;
 			public AnimeSimpleData animeSimpleData;
 			public VidStreamingData vidStreamingData;
 			public List<NonBloatSeasonData> nonBloatSeasonData;
+		}
+
+		[System.Serializable]
+		public enum EpisodeOrigin
+		{
+			IMDbTitle = 0,
+			DownloadEp = 1,
+			YoutubeExternal = 2,
+			PureExternal = 3,
+		}
+
+		[System.Serializable]
+		public struct CachedCoreEpisode
+		{
+			/// <summary>
+			/// progress from 0-1
+			/// </summary>
+			public double progress;
+			public EpisodeOrigin origin;
+			public Movie state;
+			public DateTime createdAt;
+			public int episode;
+			public int season;
+			public string episodeName;
+			public string description;
+			public string rating;
+			public string poster;
+			public string parentName;
+			public string imdbId;
+			public string parentImdbId;
 		}
 
 		[Serializable]
@@ -365,7 +408,6 @@ namespace CloudStreamForms.Core
 			public string[] urls;
 		}
 
-
 		[Serializable]
 		public struct KissanimefreeData
 		{
@@ -378,18 +420,6 @@ namespace CloudStreamForms.Core
 			public string dubReferer;
 			public string subReferer;
 		}
-
-		[Serializable]
-		public struct WatchMovieAnimeData
-		{
-			public bool dubExists;
-			public bool subExists;
-			public int maxSubbedEpisodes;
-			public int maxDubbedEpisodes;
-			public string dubUrl;
-			public string subUrl;
-		}
-
 
 		[Serializable]
 		public struct AnimekisaData
@@ -408,7 +438,6 @@ namespace CloudStreamForms.Core
 			public string[] dubbedEpisodes;
 			public string[] subbedEpisodes;
 		}
-
 
 		[System.Serializable]
 		public struct DubbedAnimeNetData
@@ -442,7 +471,6 @@ namespace CloudStreamForms.Core
 			public bool subExists;
 		}
 
-
 		[Serializable]
 		public struct GogoAnimeData
 		{
@@ -451,6 +479,7 @@ namespace CloudStreamForms.Core
 			public string subUrl;
 			public string dubUrl;
 		}
+
 		[Serializable]
 		public struct KickassAnimeData
 		{
@@ -485,9 +514,7 @@ namespace CloudStreamForms.Core
 			public string firstName;
 			public List<MALSeasonData> seasonData;
 			public bool done;
-			public bool loadSeasonEpCountDone;
 			public List<int> currentActiveGoGoMaxEpsPerSeason;
-			public List<int> currentActiveDubbedMaxEpsPerSeason;
 			public List<int> currentActiveKickassMaxEpsPerSeason;
 			public string currentSelectedYear;
 		}
@@ -496,7 +523,7 @@ namespace CloudStreamForms.Core
 		public struct MovieMetadata
 		{
 			public object metadata;
-			public object name;
+			public string name;
 		}
 
 		[Serializable]
@@ -531,7 +558,6 @@ namespace CloudStreamForms.Core
 			public List<YesmoviessSeasonData> yesmoviessSeasonDatas; // NOT SORTED; MAKE SURE TO SEARCH ALL
 
 			public List<WatchSeriesHdMetaData> watchSeriesHdMetaData;// NOT SORTED; MAKE SURE TO SEARCH ALL
-			public List<FMoviesData> fmoviesMetaData;// NOT SORTED; MAKE SURE TO SEARCH ALL
 			/// <summary>
 			/// -1 = movie, 1-inf is seasons
 			/// </summary>
@@ -541,7 +567,6 @@ namespace CloudStreamForms.Core
 			public string kickassSubUrl;
 			public string kickassDubUrl;
 			public string monkeyStreamMetadata;
-
 
 			public string shortEpView;
 
@@ -598,39 +623,8 @@ namespace CloudStreamForms.Core
 		}
 
 		#region QuickSearch
-		[System.Serializable]
-		public struct DubbedAnimeEpisode
-		{
-			public string rowid;
-			public string title;
-			public string desc;
-			public string status;
-			public object skips;
-			public int totalEp;
-			public string ep;
-			public int NextEp;
-			public string slug;
-			public string wideImg;
-			public string year;
-			public string showid;
-			public string Epviews;
-			public string TotalViews;
-			public string serversHTML;
-			public string preview_img;
-			public string tags;
-		}
-		[System.Serializable]
-		public struct DubbedAnimeSearchResult
-		{
-			public List<DubbedAnimeEpisode> anime;
-			public bool error;
-			public object errorMSG;
-		}
-		[System.Serializable]
-		public struct DubbedAnimeSearchRootObject
-		{
-			public DubbedAnimeSearchResult result;
-		}
+#pragma warning disable CS0649
+
 		[System.Serializable]
 		struct MALSearchPayload
 		{
@@ -697,7 +691,6 @@ namespace CloudStreamForms.Core
 			/// </summary>
 			public string s;
 		}
-
 		[System.Serializable]
 		struct IMDbSearchItem
 		{
@@ -742,7 +735,6 @@ namespace CloudStreamForms.Core
 			/// </summary>
 			public string yr;
 		}
-
 		[System.Serializable]
 		struct IMDbQuickSearch
 		{
@@ -756,6 +748,7 @@ namespace CloudStreamForms.Core
 			public string q;
 			public int v;
 		}
+#pragma warning restore CS0649
 		#endregion
 
 		[Serializable]
@@ -843,20 +836,20 @@ namespace CloudStreamForms.Core
 			public int number;
 		}
 
-
+#pragma warning disable CS0649
 		[Serializable]
 		struct MoeService
 		{
 			public string service;
 			public string serviceId;
 		}
+		/*
 		[Serializable]
 		struct MoeLink
 		{
 			public string Title;
 			public string URL;
 		}
-
 		[Serializable]
 		struct MoeMediaTitle
 		{
@@ -866,34 +859,36 @@ namespace CloudStreamForms.Core
 			public string Japanese;
 			public string Hiragana;
 			public string[] Synonyms;
-		}
+		}*/
 
 		[Serializable]
 		struct MoeApi
 		{
-			public string id;
-			public string type;
-			public MoeMediaTitle title;
-			public string summary;
-			public string status;
-			public string[] genres;
-			public string startDate;
-			public string endDate;
-			public int episodeCount;
-			public int episodeLength;
-			public string source;
+			//public string id;
+			//public string type;
+			//public MoeMediaTitle title;
+			//public string summary;
+			//public string status;
+			//public string[] genres;
+			//public string startDate;
+			//public string endDate;
+			//public int episodeCount;
+			//public int episodeLength;
+			//public string source;
 			public MoeService[] mappings;
 			//  Image image;
-			public string firstChannel;
+			//public string firstChannel;
 			//   AnimeRating rating;
 			//  AnimePopularity popularity;
 			//  ExternalMedia[] trailers;
 			public string[] episodes;
-			public string[] studios;
-			public string[] producers;
-			public string[] licensors;
-			public MoeLink[] links;
+			//public string[] studios;
+			//public string[] producers;
+			//public string[] licensors;
+			//public MoeLink[] links;
 		}
+#pragma warning restore CS0649
+
 		#endregion
 
 		// ========================================================= EVENTS =========================================================
@@ -903,22 +898,17 @@ namespace CloudStreamForms.Core
 		public Movie activeMovie = new Movie();
 		public string activeTrailer = "";
 
-		public event EventHandler<Poster> addedSeachResult;
-		public event EventHandler<Movie> titleLoaded;
-		public event EventHandler<List<Poster>> searchLoaded;
-		public event EventHandler<List<Trailer>> trailerLoaded;
-		public event EventHandler<List<Episode>> episodeLoaded;
-		public event EventHandler<List<Episode>> episodeHalfLoaded;
-		public event EventHandler<string> linkAdded;
-		public event EventHandler<MALData> malDataLoaded;
-		public event EventHandler<Episode> linksProbablyDone;
+		public event EventHandler<Poster> AddedSeachResult;
+		public event EventHandler<Movie> TitleLoaded;
+		public event EventHandler<List<Poster>> SearchLoaded;
+		public event EventHandler<List<Trailer>> TrailerLoaded;
+		public event EventHandler<List<Episode>> EpisodeLoaded;
+		public event EventHandler<List<Episode>> EpisodeHalfLoaded;
+		public event EventHandler<string> LinkAdded;
+		public event EventHandler<MALData> MalDataLoaded;
 
-		public event EventHandler<Movie> movie123FishingDone;
-		public event EventHandler<Movie> yesmovieFishingDone;
-		public event EventHandler<Movie> watchSeriesFishingDone;
-		public event EventHandler<Movie> fmoviesFishingDone;
-		public event EventHandler<Movie> fishingDone;
-		public event EventHandler<List<MoeEpisode>> moeDone;
+		public event EventHandler<Movie> FishingDone;
+		public event EventHandler<List<MoeEpisode>> MoeDone;
 
 		[Serializable]
 		public struct FishLoaded
@@ -929,7 +919,7 @@ namespace CloudStreamForms.Core
 			public int currentProgress;
 		}
 
-		public event EventHandler<FishLoaded> fishProgressLoaded;
+		public event EventHandler<FishLoaded> FishProgressLoaded;
 		//public static event EventHandler<Movie> yesmovieFishingDone;
 
 		public static Random rng = new Random();
@@ -953,7 +943,7 @@ namespace CloudStreamForms.Core
 		public class BaseProvider
 		{
 			public readonly CloudStreamCore core;
-			public Movie activeMovie { set { core.activeMovie = value; } get { return core.activeMovie; } }
+			public Movie ActiveMovie { set { core.activeMovie = value; } get { return core.activeMovie; } }
 			public string DownloadString(string url, TempThread? tempThred = null, int repeats = 2, int waitTime = 10000, string referer = "", Encoding encoding = null) => core.DownloadString(url, tempThred, repeats, waitTime, referer, encoding);
 			public bool GetThredActive(TempThread temp) => core.GetThredActive(temp);
 			public void AddEpisodesFromMirrors(TempThread tempThred, string d, int normalEpisode, string extraId = "", string extra = "") => core.AddEpisodesFromMirrors(tempThred, d, normalEpisode, extraId, extra);
@@ -1045,9 +1035,9 @@ namespace CloudStreamForms.Core
 			public override void FishMainLink(string year, TempThread tempThred, MALData malData)
 			{
 				print("start");
-				if (activeMovie.title.MALData.japName != "error") {
+				if (ActiveMovie.title.MALData.japName != "error") {
 					print("DOWNLOADING");
-					string d = DownloadString($"{MainSite}/search.html?keyword=" + activeMovie.title.MALData.japName.Substring(0, Math.Min(5, activeMovie.title.MALData.japName.Length)), tempThred);
+					string d = DownloadString($"{MainSite}/search.html?keyword=" + ActiveMovie.title.MALData.japName.Substring(0, Math.Min(5, ActiveMovie.title.MALData.japName.Length)), tempThred);
 					if (!GetThredActive(tempThred)) { return; }; // COPY UPDATE PROGRESS
 					string look = "<p class=\"name\"><a href=\"/category/";
 
@@ -1074,11 +1064,11 @@ namespace CloudStreamForms.Core
                             }*/
 
 							// LOADS TITLES
-							for (int i = 0; i < activeMovie.title.MALData.seasonData.Count; i++) {
-								for (int q = 0; q < activeMovie.title.MALData.seasonData[i].seasons.Count; q++) {
+							for (int i = 0; i < ActiveMovie.title.MALData.seasonData.Count; i++) {
+								for (int q = 0; q < ActiveMovie.title.MALData.seasonData[i].seasons.Count; q++) {
 									MALSeason ms;
 									lock (_lock) {
-										ms = activeMovie.title.MALData.seasonData[i].seasons[q];
+										ms = ActiveMovie.title.MALData.seasonData[i].seasons[q];
 									}
 
 									bool containsSyno = false;
@@ -1096,7 +1086,7 @@ namespace CloudStreamForms.Core
 
 										lock (_lock) {
 
-											var baseData = activeMovie.title.MALData.seasonData[i].seasons[q];
+											var baseData = ActiveMovie.title.MALData.seasonData[i].seasons[q];
 											if (animeTitle == title) {
 												baseData.gogoData.subExists = true;
 												baseData.gogoData.subUrl = ur;
@@ -1114,7 +1104,7 @@ namespace CloudStreamForms.Core
                                             else {
                                                 activeMovie.title.MALData.seasonData[i].seasons[q] //= new MALSeason() { name = ms.name, dubUrl = ur.Replace("-dub", "") + "-dub", subUrl = ms.subUrl, dubExists = true, subExists = ms.subExists, japName = ms.japName, engName = ms.engName, synonyms = ms.synonyms };
                                             }*/
-											activeMovie.title.MALData.seasonData[i].seasons[q] = baseData;
+											ActiveMovie.title.MALData.seasonData[i].seasons[q] = baseData;
 										}
 
 									}
@@ -1123,9 +1113,9 @@ namespace CloudStreamForms.Core
 						}
 						d = d.Substring(d.IndexOf(look) + 1, d.Length - d.IndexOf(look) - 1);
 					}
-					for (int i = 0; i < activeMovie.title.MALData.seasonData.Count; i++) {
-						for (int q = 0; q < activeMovie.title.MALData.seasonData[i].seasons.Count; q++) {
-							var ms = activeMovie.title.MALData.seasonData[i].seasons[q];
+					for (int i = 0; i < ActiveMovie.title.MALData.seasonData.Count; i++) {
+						for (int q = 0; q < ActiveMovie.title.MALData.seasonData[i].seasons.Count; q++) {
+							var ms = ActiveMovie.title.MALData.seasonData[i].seasons[q];
 
 							if (ms.gogoData.dubExists) {
 								print(i + ". " + ms.name + " | Dub E " + ms.gogoData.dubUrl);
@@ -1143,8 +1133,8 @@ namespace CloudStreamForms.Core
 				List<string> baseUrls = new List<string>();
 
 				try {
-					for (int q = 0; q < activeMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
-						var ms = activeMovie.title.MALData.seasonData[currentSeason].seasons[q].gogoData;
+					for (int q = 0; q < ActiveMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
+						var ms = ActiveMovie.title.MALData.seasonData[currentSeason].seasons[q].gogoData;
 
 						if ((ms.dubExists && isDub) || (ms.subExists && !isDub)) {
 							//  dstring = ms.baseUrl;
@@ -1201,8 +1191,8 @@ namespace CloudStreamForms.Core
 				List<string> baseUrls = new List<string>();
 
 				try {
-					for (int q = 0; q < activeMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
-						var ms = activeMovie.title.MALData.seasonData[currentSeason].seasons[q].gogoData;
+					for (int q = 0; q < ActiveMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
+						var ms = ActiveMovie.title.MALData.seasonData[currentSeason].seasons[q].gogoData;
 
 						if ((ms.dubExists && isDub) || (ms.subExists && !isDub)) {
 							//  dstring = ms.baseUrl;
@@ -1228,7 +1218,7 @@ namespace CloudStreamForms.Core
                     try {*/
 
 				try {
-					if (episode <= activeMovie.title.MALData.currentActiveGoGoMaxEpsPerSeason.Sum()) {
+					if (episode <= ActiveMovie.title.MALData.currentActiveGoGoMaxEpsPerSeason.Sum()) {
 						string fwordLink = "";
 						List<string> fwords = GetAllGogoLinksFromAnime(season, isDub);
 						// for (int i = 0; i < fwords.Count; i++) {
@@ -1241,16 +1231,16 @@ namespace CloudStreamForms.Core
 						int floor = 0;
 						int subtract = 0;
 						// print(activeMovie.title.MALData.currentActiveMaxEpsPerSeason);
-						if (activeMovie.title.MALData.currentActiveGoGoMaxEpsPerSeason != null) {
-							for (int i = 0; i < activeMovie.title.MALData.currentActiveGoGoMaxEpsPerSeason.Count; i++) {
-								int seling = floor + activeMovie.title.MALData.currentActiveGoGoMaxEpsPerSeason[i];
+						if (ActiveMovie.title.MALData.currentActiveGoGoMaxEpsPerSeason != null) {
+							for (int i = 0; i < ActiveMovie.title.MALData.currentActiveGoGoMaxEpsPerSeason.Count; i++) {
+								int seling = floor + ActiveMovie.title.MALData.currentActiveGoGoMaxEpsPerSeason[i];
 
 								if (episode > floor && episode <= seling) {
 									sel = i;
 									subtract = floor;
 								}
 								//print(activeMovie.title.MALData.currentActiveMaxEpsPerSeason[i] + "<<");
-								floor += activeMovie.title.MALData.currentActiveGoGoMaxEpsPerSeason[i];
+								floor += ActiveMovie.title.MALData.currentActiveGoGoMaxEpsPerSeason[i];
 							}
 						}
 						//print("sel: " + sel);
@@ -1289,22 +1279,22 @@ namespace CloudStreamForms.Core
 
 		class KickassMovieProvider : BaseMovieProvier
 		{
+			const string SiteUrl = "https://www2.kickassanime.rs";
 			public override string Name => "KickassMovie";
 			public override void FishMainLinkTSync(TempThread tempThread)
 			{
-				if (activeMovie.title.movieType != MovieType.AnimeMovie) return;
+				if (ActiveMovie.title.movieType != MovieType.AnimeMovie) return;
 
 				try {
-					string query = ToDown(activeMovie.title.name);
-					string url = "https://www.kickassanime.rs/search?q=" + query;
+					string query = ToDown(ActiveMovie.title.name);
+					string url = $"{SiteUrl}/search?q={query}";
 					string d = DownloadString(url);
 					if (!GetThredActive(tempThread)) { return; }; // COPY UPDATE PROGRESS
 
 					string subUrl = "";
 					string dubUrl = "";
 					const string lookfor = "\"name\":\"";
-					string compare = ToDown(activeMovie.title.name, true, "");
-
+					string compare = ToDown(ActiveMovie.title.name, true, "");
 
 					while (d.Contains(lookfor)) {
 						string animeTitle = FindHTML(d, lookfor, "\"");
@@ -1315,7 +1305,7 @@ namespace CloudStreamForms.Core
 						d = RemoveOne(d, lookfor);
 						string animeT = animeTitle.Replace(dubTxt, "").Replace(cenTxt, "");
 						if (ToDown(animeT, true, "") == compare && ((isDub && dubUrl == "") || (!isDub && (subUrl == "")))) {
-							string slug = "https://www.kickassanime.rs" + FindHTML(d, "\"slug\":\"", "\"").Replace("\\/", "/");
+							string slug = SiteUrl + FindHTML(d, "\"slug\":\"", "\"").Replace("\\/", "/");
 							if (isDub) {
 								dubUrl = slug;
 							}
@@ -1333,8 +1323,7 @@ namespace CloudStreamForms.Core
 							_d = RemoveOne(_d, "epnum\":\"Episode 01");
 							string slug = FindHTML(_d, "slug\":\"", "\"").Replace("\\/", "/");
 							if (slug == "") return "";
-							return "https://www.kickassanime.rs" + slug;
-
+							return SiteUrl + slug;
 						}
 						catch (Exception _ex) {
 							error(_ex);
@@ -1366,13 +1355,13 @@ namespace CloudStreamForms.Core
 
 			public override void LoadLinksTSync(int episode, int season, int normalEpisode, bool isMovie, TempThread tempThred)
 			{
-				if (activeMovie.title.movieType != MovieType.AnimeMovie) return;
+				if (ActiveMovie.title.movieType != MovieType.AnimeMovie) return;
 				try {
-					var dubUrl = activeMovie.title.kickassDubUrl;
+					var dubUrl = ActiveMovie.title.kickassDubUrl;
 					if (dubUrl.IsClean()) {
 						back.GetKickassVideoFromURL(dubUrl, normalEpisode, tempThred, " (Dub)");
 					}
-					var subUrl = activeMovie.title.kickassSubUrl;
+					var subUrl = ActiveMovie.title.kickassSubUrl;
 					if (subUrl.IsClean()) {
 						back.GetKickassVideoFromURL(subUrl, normalEpisode, tempThred, " (Sub)");
 					}
@@ -1385,9 +1374,7 @@ namespace CloudStreamForms.Core
 
 		class KickassAnimeProvider : BaseAnimeProvider
 		{
-			public KickassAnimeProvider(CloudStreamCore _core) : base(_core)
-			{
-			}
+			public KickassAnimeProvider(CloudStreamCore _core) : base(_core) { }
 
 			public override string Name => "KickassAnime";
 
@@ -1397,12 +1384,12 @@ namespace CloudStreamForms.Core
 				sub = data.kickassAnimeData.subExists;
 			}
 
-			const string mainUrl = "https://www1.kickassanime.rs";
+			const string SiteUrl = "https://www2.kickassanime.rs";
 
 			public override void FishMainLink(string year, TempThread tempThred, MALData malData)
 			{
 				string query = malData.firstName;
-				string url = mainUrl + "/search?q=" + query;//activeMovie.title.name.Replace(" ", "%20");
+				string url = SiteUrl + "/search?q=" + query;//activeMovie.title.name.Replace(" ", "%20");
 				print("COMPAREURL:" + url);
 				string d = DownloadString(url);
 				if (!GetThredActive(tempThred)) { return; }; // COPY UPDATE PROGRESS
@@ -1418,14 +1405,14 @@ namespace CloudStreamForms.Core
 					animeTitle = animeTitle.Replace(cenTxt, "").Replace(dubTxt, "").Replace(" ", "");
 
 					d = RemoveOne(d, lookfor);
-					string slug = mainUrl + FindHTML(d, "\"slug\":\"", "\"").Replace("\\/", "/");
+					string slug = SiteUrl + FindHTML(d, "\"slug\":\"", "\"").Replace("\\/", "/");
 
-					for (int i = 0; i < activeMovie.title.MALData.seasonData.Count; i++) {
-						for (int q = 0; q < activeMovie.title.MALData.seasonData[i].seasons.Count; q++) {
+					for (int i = 0; i < ActiveMovie.title.MALData.seasonData.Count; i++) {
+						for (int q = 0; q < ActiveMovie.title.MALData.seasonData[i].seasons.Count; q++) {
 							MALSeason ms;
 
 							lock (_lock) {
-								ms = activeMovie.title.MALData.seasonData[i].seasons[q];
+								ms = ActiveMovie.title.MALData.seasonData[i].seasons[q];
 							}
 
 							string compareName = ms.name.Replace(" ", "");
@@ -1451,7 +1438,7 @@ namespace CloudStreamForms.Core
 										string epNum = FindHTML(_d, _lookfor, "\"");
 										_d = RemoveOne(_d, _lookfor);
 
-										string _slug = mainUrl + FindHTML(_d, "\"slug\":\"", "\"").Replace("\\/", "/");
+										string _slug = SiteUrl + FindHTML(_d, "\"slug\":\"", "\"").Replace("\\/", "/");
 										//print("SLUGOS:" + _slug + "|" + epNum);
 										string createDate = FindHTML(_d, "\"createddate\":\"", "\"");
 										// string name = FindHTML(d, lookfor, "\"");
@@ -1471,7 +1458,7 @@ namespace CloudStreamForms.Core
 								print("EPISODES::::" + episodes.Length);
 
 								lock (_lock) {
-									var baseData = activeMovie.title.MALData.seasonData[i].seasons[q];
+									var baseData = ActiveMovie.title.MALData.seasonData[i].seasons[q];
 									if (!isDub) {
 										baseData.kickassAnimeData.subExists = true;
 										baseData.kickassAnimeData.subUrl = slug;
@@ -1484,7 +1471,7 @@ namespace CloudStreamForms.Core
 										baseData.kickassAnimeData.dubEpisodesUrls = episodes;
 									}
 
-									activeMovie.title.MALData.seasonData[i].seasons[q] = baseData;
+									ActiveMovie.title.MALData.seasonData[i].seasons[q] = baseData;
 								}
 								goto endloop;
 							}
@@ -1512,10 +1499,10 @@ namespace CloudStreamForms.Core
 			public List<string> GetAllLinks(int currentSeason, bool isDub)
 			{
 				List<string> baseUrls = new List<string>();
-				print("CURRENSTSEASON:::" + currentSeason + "|" + isDub + "|" + activeMovie.title.MALData.seasonData.Count);
+				print("CURRENSTSEASON:::" + currentSeason + "|" + isDub + "|" + ActiveMovie.title.MALData.seasonData.Count);
 				try {
-					for (int q = 0; q < activeMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
-						var ms = activeMovie.title.MALData.seasonData[currentSeason].seasons[q].kickassAnimeData;
+					for (int q = 0; q < ActiveMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
+						var ms = ActiveMovie.title.MALData.seasonData[currentSeason].seasons[q].kickassAnimeData;
 
 						if ((ms.dubExists && isDub) || (ms.subExists && !isDub)) {
 							//  dstring = ms.baseUrl;
@@ -1721,82 +1708,9 @@ namespace CloudStreamForms.Core
 			}
 		}
 
-		public class DubbedAnimeMovieProvider : BaseMovieProvier
-		{
-			public override string Name => "DubbedAnime";
-			readonly DubbedAnimeProvider back;
-			public DubbedAnimeMovieProvider(CloudStreamCore _core) : base(_core)
-			{
-				back = new DubbedAnimeProvider(_core);
-			}
-
-			public void FishMainMovies(TempThread tempThread)
-			{
-				try {
-					string d = DownloadString("https://bestdubbedanime.com/movies/");
-
-					if (!GetThredActive(tempThread)) { return; }; // COPY UPDATE PROGRESS
-
-					if (d != "") {
-						titles.Clear();
-						hrefs.Clear();
-						const string lookFor = "//bestdubbedanime.com/movies/";
-						while (d.Contains(lookFor)) {
-							string href = FindHTML(d, lookFor, "\"");
-							d = RemoveOne(d, lookFor);
-							string title = FindHTML(d, "grid_item_title\">", "<");
-
-							hrefs.Add(href);
-							titles.Add(title);
-							// print(href + "|" + title);
-						}
-						if (hrefs.Count > 0) {
-							hasSearched = true;
-						}
-					}
-				}
-				catch (Exception _ex) {
-					error("EX IN MAINMOV: " + _ex);
-				}
-			}
-
-
-			public static List<string> hrefs = new List<string>();
-			public static List<string> titles = new List<string>();
-			public static bool hasSearched = false;
-
-			public override void FishMainLinkTSync(TempThread tempThread)
-			{
-				if (activeMovie.title.movieType == MovieType.AnimeMovie && !hasSearched) {
-					FishMainMovies(tempThread);
-				}
-			}
-
-			public override void LoadLinksTSync(int episode, int season, int normalEpisode, bool isMovie, TempThread tempThred)
-			{
-				try {
-					if (activeMovie.title.movieType == MovieType.AnimeMovie) {
-						for (int i = 0; i < titles.Count; i++) {
-							if (ToDown(titles[i], replaceSpace: "") == ToDown(activeMovie.title.name, replaceSpace: "")) {
-								var ep = core.GetDubbedAnimeEpisode(hrefs[i]);
-								if (!GetThredActive(tempThred)) { return; }; // COPY UPDATE PROGRESS
-								back.AddMirrors(ep, normalEpisode);
-								return;
-							}
-						}
-					}
-				}
-				catch (Exception _ex) {
-					error("PROVIDER ERROR: " + _ex);
-				}
-			}
-		}
-
 		public class AnimeSimpleProvider : BaseAnimeProvider
 		{
-			public AnimeSimpleProvider(CloudStreamCore _core) : base(_core)
-			{
-			}
+			public AnimeSimpleProvider(CloudStreamCore _core) : base(_core) { }
 
 			public override void GetHasDubSub(MALSeason data, out bool dub, out bool sub)
 			{
@@ -1873,7 +1787,7 @@ namespace CloudStreamForms.Core
 			public override void FishMainLink(string year, TempThread tempThred, MALData malData)
 			{
 				try {
-					string search = activeMovie.title.name;
+					string search = ActiveMovie.title.name;
 					string d = DownloadString("https://ww1.animesimple.com/search?q=" + search);
 					const string lookFor = "cutoff-fix\" href=\"";
 					while (d.Contains(lookFor)) {
@@ -1881,21 +1795,21 @@ namespace CloudStreamForms.Core
 						d = RemoveOne(d, lookFor);
 						string title = FindHTML(d, "title=\"", "\"");
 						var ctit = GetAnimeSimpleTitle(href);
-						for (int i = 0; i < activeMovie.title.MALData.seasonData.Count; i++) {
-							for (int q = 0; q < activeMovie.title.MALData.seasonData[i].seasons.Count; q++) {
+						for (int i = 0; i < ActiveMovie.title.MALData.seasonData.Count; i++) {
+							for (int q = 0; q < ActiveMovie.title.MALData.seasonData[i].seasons.Count; q++) {
 								MALSeason ms;
 
 								lock (_lock) {
-									ms = activeMovie.title.MALData.seasonData[i].seasons[q];
+									ms = ActiveMovie.title.MALData.seasonData[i].seasons[q];
 								}
 								if (FindHTML(ms.malUrl, "/anime/", "/") == ctit.malId) {
 									var eps = GetAnimeSimpleEpisodes(ctit.id);
 									lock (_lock) {
-										var baseData = activeMovie.title.MALData.seasonData[i].seasons[q];
+										var baseData = ActiveMovie.title.MALData.seasonData[i].seasons[q];
 										baseData.animeSimpleData.dubbedEpisodes = eps.dubbedEpisodes;
 										baseData.animeSimpleData.subbedEpisodes = eps.subbedEpisodes;
 										baseData.animeSimpleData.urls = eps.urls;
-										activeMovie.title.MALData.seasonData[i].seasons[q] = baseData;
+										ActiveMovie.title.MALData.seasonData[i].seasons[q] = baseData;
 									}
 									goto animesimpleouterloop;
 								}
@@ -1913,8 +1827,8 @@ namespace CloudStreamForms.Core
 			{
 				int count = 0;
 				try {
-					for (int q = 0; q < activeMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
-						var ms = activeMovie.title.MALData.seasonData[currentSeason].seasons[q].animeSimpleData;
+					for (int q = 0; q < ActiveMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
+						var ms = ActiveMovie.title.MALData.seasonData[currentSeason].seasons[q].animeSimpleData;
 						count += isDub ? ms.dubbedEpisodes : ms.subbedEpisodes;
 					}
 				}
@@ -1928,8 +1842,8 @@ namespace CloudStreamForms.Core
 				try {
 					int currentMax = 0;
 					int lastCount = 0;
-					for (int q = 0; q < activeMovie.title.MALData.seasonData[season].seasons.Count; q++) {
-						var ms = activeMovie.title.MALData.seasonData[season].seasons[q].animeSimpleData;
+					for (int q = 0; q < ActiveMovie.title.MALData.seasonData[season].seasons.Count; q++) {
+						var ms = ActiveMovie.title.MALData.seasonData[season].seasons[q].animeSimpleData;
 						currentMax += isDub ? ms.dubbedEpisodes : ms.subbedEpisodes;
 						if (episode <= currentMax) {
 							int realEp = normalEpisode - lastCount; // ep1 = index0; normalep = ep -1
@@ -2091,12 +2005,12 @@ namespace CloudStreamForms.Core
 					string animeTitle = re.title.Replace("(Dub)", "").Replace("  ", "");
 					string slug = re.path;
 
-					for (int i = 0; i < activeMovie.title.MALData.seasonData.Count; i++) {
-						for (int q = 0; q < activeMovie.title.MALData.seasonData[i].seasons.Count; q++) {
+					for (int i = 0; i < ActiveMovie.title.MALData.seasonData.Count; i++) {
+						for (int q = 0; q < ActiveMovie.title.MALData.seasonData[i].seasons.Count; q++) {
 							MALSeason ms;
 
 							lock (_lock) {
-								ms = activeMovie.title.MALData.seasonData[i].seasons[q];
+								ms = ActiveMovie.title.MALData.seasonData[i].seasons[q];
 							}
 
 							string compareName = ms.name.Replace(" ", "");
@@ -2110,7 +2024,7 @@ namespace CloudStreamForms.Core
 							if (ToLowerAndReplace(compareName) == ToLowerAndReplace(animeTitle) || ToLowerAndReplace(ms.engName.Replace(" ", "")) == ToLowerAndReplace(animeTitle) || containsSyno) { //|| (animeTitle.ToLower().Replace(compareName.ToLower(), "").Length / (float)animeTitle.Length) < 0.3f) { // OVER 70 MATCH
 								int episodes = GetMaxEp(slug);
 								lock (_lock) {
-									var baseData = activeMovie.title.MALData.seasonData[i].seasons[q];
+									var baseData = ActiveMovie.title.MALData.seasonData[i].seasons[q];
 									if (!isDub) {
 										baseData.kissanimefreeData.subExists = true;
 										baseData.kissanimefreeData.subUrl = slug;
@@ -2123,7 +2037,7 @@ namespace CloudStreamForms.Core
 										baseData.kissanimefreeData.maxDubbedEpisodes = episodes;
 										baseData.kissanimefreeData.dubReferer = re.url;
 									}
-									activeMovie.title.MALData.seasonData[i].seasons[q] = baseData;
+									ActiveMovie.title.MALData.seasonData[i].seasons[q] = baseData;
 								}
 								goto kissanimefreeouterloop;
 							}
@@ -2137,8 +2051,8 @@ namespace CloudStreamForms.Core
 			{
 				int count = 0;
 				try {
-					for (int q = 0; q < activeMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
-						var ms = activeMovie.title.MALData.seasonData[currentSeason].seasons[q].kissanimefreeData;
+					for (int q = 0; q < ActiveMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
+						var ms = ActiveMovie.title.MALData.seasonData[currentSeason].seasons[q].kissanimefreeData;
 
 						if ((ms.dubExists && isDub) || (ms.subExists && !isDub)) {
 							count += (isDub ? ms.maxDubbedEpisodes : ms.maxSubbedEpisodes);
@@ -2161,8 +2075,8 @@ namespace CloudStreamForms.Core
 				try {
 					int currentMax = 0;
 					int lastCount = 0;
-					for (int q = 0; q < activeMovie.title.MALData.seasonData[season].seasons.Count; q++) {
-						var ms = activeMovie.title.MALData.seasonData[season].seasons[q].kissanimefreeData;
+					for (int q = 0; q < ActiveMovie.title.MALData.seasonData[season].seasons.Count; q++) {
+						var ms = ActiveMovie.title.MALData.seasonData[season].seasons[q].kissanimefreeData;
 						currentMax += isDub ? ms.maxDubbedEpisodes : ms.maxSubbedEpisodes;
 						if (episode <= currentMax) {
 							int realEp = episode - lastCount;
@@ -2325,6 +2239,7 @@ namespace CloudStreamForms.Core
 		public void AddTrollvid(string id, int normalEpisode, string referer, TempThread tempThred, string extra = "")
 		{
 			string d = HTMLGet("https://trollvid.net/embed/" + id, referer);
+			if (!GetThredActive(tempThred)) return;
 			AddPotentialLink(normalEpisode, FindHTML(d, "<source src=\"", "\""), "Trollvid" + extra, 7);
 		}
 
@@ -2335,10 +2250,10 @@ namespace CloudStreamForms.Core
 			public override int GetLinkCount(int currentSeason, bool isDub, TempThread? tempThred)
 			{
 				int count = 0;
-				for (int q = 0; q < activeMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
+				for (int q = 0; q < ActiveMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
 					MALSeason ms;
 					lock (_lock) {
-						ms = activeMovie.title.MALData.seasonData[currentSeason].seasons[q];
+						ms = ActiveMovie.title.MALData.seasonData[currentSeason].seasons[q];
 					}
 					var data = ms.vidStreamingData;
 					if ((data.dubExists && isDub) || (data.subExists && !isDub)) {
@@ -2439,11 +2354,11 @@ namespace CloudStreamForms.Core
 					var quickSearch = SlowSearchVidStreaming(malData.engName); //QuickSearchVidStreaming(activeMovie.title.name);
 					if (!GetThredActive(tempThred)) { return; }; // COPY UPDATE PROGRESS
 
-					for (int z = 0; z < activeMovie.title.MALData.seasonData.Count; z++) {
-						for (int q = 0; q < activeMovie.title.MALData.seasonData[z].seasons.Count; q++) {
+					for (int z = 0; z < ActiveMovie.title.MALData.seasonData.Count; z++) {
+						for (int q = 0; q < ActiveMovie.title.MALData.seasonData[z].seasons.Count; q++) {
 							MALSeason ms;
 							lock (_lock) {
-								ms = activeMovie.title.MALData.seasonData[z].seasons[q];
+								ms = ActiveMovie.title.MALData.seasonData[z].seasons[q];
 							}
 
 							VidStreamingData data = ms.vidStreamingData;
@@ -2463,9 +2378,9 @@ namespace CloudStreamForms.Core
 							}
 
 							lock (_lock) {
-								ms = activeMovie.title.MALData.seasonData[z].seasons[q];
+								ms = ActiveMovie.title.MALData.seasonData[z].seasons[q];
 								ms.vidStreamingData = data;
-								activeMovie.title.MALData.seasonData[z].seasons[q] = ms;
+								ActiveMovie.title.MALData.seasonData[z].seasons[q] = ms;
 							}
 						}
 					}
@@ -2486,8 +2401,8 @@ namespace CloudStreamForms.Core
 			{
 				try {
 					int currentEp = 0;
-					for (int q = 0; q < activeMovie.title.MALData.seasonData[season].seasons.Count; q++) {
-						var data = activeMovie.title.MALData.seasonData[season].seasons[q].vidStreamingData;
+					for (int q = 0; q < ActiveMovie.title.MALData.seasonData[season].seasons.Count; q++) {
+						var data = ActiveMovie.title.MALData.seasonData[season].seasons[q].vidStreamingData;
 						if ((data.dubExists && isDub) || (data.subExists && !isDub)) {
 							var epData = isDub ? data.dubbedEpData : data.subbedEpData;
 							int _ep = episode - currentEp;
@@ -2627,12 +2542,12 @@ namespace CloudStreamForms.Core
 					var _d = JsonConvert.DeserializeObject<DubbedAnimeNetQuickSearch>(postReq);
 
 					for (int i = 0; i < _d.results.Count; i++) {
-						for (int q = 0; q < activeMovie.title.MALData.seasonData.Count; q++) {
-							for (int z = 0; z < activeMovie.title.MALData.seasonData[q].seasons.Count; z++) {
+						for (int q = 0; q < ActiveMovie.title.MALData.seasonData.Count; q++) {
+							for (int z = 0; z < ActiveMovie.title.MALData.seasonData[q].seasons.Count; z++) {
 
 								MALSeason ms;
 								lock (_lock) {
-									ms = activeMovie.title.MALData.seasonData[q].seasons[z];
+									ms = ActiveMovie.title.MALData.seasonData[q].seasons[z];
 								}
 
 								string id = FindHTML(ms.malUrl, "/anime/", "/");
@@ -2672,9 +2587,9 @@ namespace CloudStreamForms.Core
 
 									lock (_lock) {
 										//error(data.FString());
-										var _data = activeMovie.title.MALData.seasonData[q].seasons[z];
+										var _data = ActiveMovie.title.MALData.seasonData[q].seasons[z];
 										_data.dubbedAnimeNetData = data;
-										activeMovie.title.MALData.seasonData[q].seasons[z] = _data;
+										ActiveMovie.title.MALData.seasonData[q].seasons[z] = _data;
 									}
 								}
 								//print(md.malUrl)
@@ -2692,8 +2607,8 @@ namespace CloudStreamForms.Core
 			{
 				int len = 0;
 				try {
-					for (int q = 0; q < activeMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
-						var ms = activeMovie.title.MALData.seasonData[currentSeason].seasons[q].dubbedAnimeNetData;
+					for (int q = 0; q < ActiveMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
+						var ms = ActiveMovie.title.MALData.seasonData[currentSeason].seasons[q].dubbedAnimeNetData;
 						if ((ms.dubExists && isDub) || (ms.subExists && !isDub)) {
 							//  dstring = ms.baseUrl;
 							foreach (var ep in ms.EpisodesUrls) {
@@ -2714,16 +2629,16 @@ namespace CloudStreamForms.Core
 				int max = 0;
 
 				lock (_lock) {
-					for (int q = 0; q < activeMovie.title.MALData.seasonData[season].seasons.Count; q++) {
-						var urls = activeMovie.title.MALData.seasonData[season].seasons[q].dubbedAnimeNetData.EpisodesUrls;
+					for (int q = 0; q < ActiveMovie.title.MALData.seasonData[season].seasons.Count; q++) {
+						var urls = ActiveMovie.title.MALData.seasonData[season].seasons[q].dubbedAnimeNetData.EpisodesUrls;
 						if (urls == null) {
 							return "";
 						}
-						max += activeMovie.title.MALData.seasonData[season].seasons[q].dubbedAnimeNetData.EpisodesUrls.Length;
+						max += ActiveMovie.title.MALData.seasonData[season].seasons[q].dubbedAnimeNetData.EpisodesUrls.Length;
 						print("MAX::: " + max);
 
 						if (max > normalEpisode) {
-							var ms = activeMovie.title.MALData.seasonData[season].seasons[q];
+							var ms = ActiveMovie.title.MALData.seasonData[season].seasons[q];
 							if (ms.dubbedAnimeNetData.EpisodesUrls.Length > normalEpisode) {
 								return "https://ww5.dubbedanime.net" + ms.dubbedAnimeNetData.EpisodesUrls[normalEpisode].href;
 							}
@@ -2821,10 +2736,10 @@ namespace CloudStreamForms.Core
 			}
 
 			public override string Name => "DreamAnime";
-			//quick
+
 			public override void FishMainLink(string year, TempThread tempThred, MALData malData)
 			{
-				string search = activeMovie.title.name;
+				string search = ActiveMovie.title.name;
 				string d = DownloadString("https://dreamanime.fun/search?term=" + search);
 
 				const string lookFor = "</div>\n<a href=\"";
@@ -2838,20 +2753,20 @@ namespace CloudStreamForms.Core
 
 						string _d = RemoveOne(searchdload, "<div class=\"deta\">Aired:</div>");
 						string date = FindHTML(_d, "<p class=\"beta\">", "<"); // START MATCH DATE
-						for (int z = 0; z < activeMovie.title.MALData.seasonData.Count; z++) {
-							for (int q = 0; q < activeMovie.title.MALData.seasonData[z].seasons.Count; q++) {
+						for (int z = 0; z < ActiveMovie.title.MALData.seasonData.Count; z++) {
+							for (int q = 0; q < ActiveMovie.title.MALData.seasonData[z].seasons.Count; q++) {
 								//string malUrl = activeMovie.title.MALData.seasonData[z].seasons[q].malUrl;
 
 								string startDate;
 								lock (_lock) {
-									startDate = activeMovie.title.MALData.seasonData[z].seasons[q].startDate;
+									startDate = ActiveMovie.title.MALData.seasonData[z].seasons[q].startDate;
 								}
 								if (startDate != "" && date != "") {
 									if (DateTime.Parse(startDate) == DateTime.Parse(date)) { // THE SAME
 										try {
 											AnimeDreamData ms;
 											lock (_lock) {
-												ms = activeMovie.title.MALData.seasonData[z].seasons[q].animedreamData;
+												ms = ActiveMovie.title.MALData.seasonData[z].seasons[q].animedreamData;
 											}
 											if (ms.dubExists || ms.subExists) {
 												print("SUBDUBEXISTS CONTS");
@@ -2911,9 +2826,9 @@ namespace CloudStreamForms.Core
 											ms.subbedEpisodes = subbedEpisodes.ToArray();
 											ms.dubbedEpisodes = dubbedEpisodes.ToArray();
 											lock (_lock) {
-												var val = activeMovie.title.MALData.seasonData[z].seasons[q];
+												var val = ActiveMovie.title.MALData.seasonData[z].seasons[q];
 												val.animedreamData = ms;
-												activeMovie.title.MALData.seasonData[z].seasons[q] = val;
+												ActiveMovie.title.MALData.seasonData[z].seasons[q] = val;
 											}
 										}
 										catch (Exception _ex) {
@@ -2931,8 +2846,8 @@ namespace CloudStreamForms.Core
 			{
 				int len = 0;
 				try {
-					for (int q = 0; q < activeMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
-						var ms = activeMovie.title.MALData.seasonData[currentSeason].seasons[q].animedreamData;
+					for (int q = 0; q < ActiveMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
+						var ms = ActiveMovie.title.MALData.seasonData[currentSeason].seasons[q].animedreamData;
 						if ((ms.dubExists && isDub)) {
 							len += ms.dubbedEpisodes.Length;
 						}
@@ -2949,45 +2864,45 @@ namespace CloudStreamForms.Core
 			[Serializable]
 			public struct DreamApiName
 			{
-				public string @default { get; set; }
-				public string english { get; set; }
+				public string @default;
+				public string english;
 			}
 
 			[Serializable]
 			public struct DreamApiVideo
 			{
-				public string host { get; set; }
-				public string id { get; set; }
-				public string type { get; set; }
-				public string date { get; set; }
+				public string host;
+				public string id;
+				public string type;
+				public string date;
 			}
 
 			[Serializable]
 			public struct DreamAnimeLinkApi
 			{
-				public string id { get; set; }
-				public string anime_id { get; set; }
-				public string slug { get; set; }
-				public string number { get; set; }
-				public DreamApiName name { get; set; }
-				public string title { get; set; }
-				public string description { get; set; }
-				public string date { get; set; }
-				public List<DreamApiVideo> videos { get; set; }
-				public string image { get; set; }
-				public string next_id { get; set; }
-				public string previous_id { get; set; }
-				public string url { get; set; }
-				public string lang { get; set; }
+				public string id;
+				public string anime_id;
+				public string slug;
+				public string number;
+				public DreamApiName name;
+				public string title;
+				public string description;
+				public string date;
+				public List<DreamApiVideo> videos;
+				public string image;
+				public string next_id;
+				public string previous_id;
+				public string url;
+				public string lang;
 			}
 
 			public override void LoadLinksTSync(int episode, int season, int normalEpisode, bool isDub, TempThread tempThred)
 			{
 				int _episode = 0;
-				for (int q = 0; q < activeMovie.title.MALData.seasonData[season].seasons.Count; q++) {
+				for (int q = 0; q < ActiveMovie.title.MALData.seasonData[season].seasons.Count; q++) {
 					AnimeDreamData ms;
 					lock (_lock) {
-						ms = activeMovie.title.MALData.seasonData[season].seasons[q].animedreamData;
+						ms = ActiveMovie.title.MALData.seasonData[season].seasons[q].animedreamData;
 					}
 
 					string[] data = new string[0];
@@ -3013,21 +2928,6 @@ namespace CloudStreamForms.Core
 							for (int i = 0; i < epi.videos.Count; i++) {
 								var vid = epi.videos[i];
 								if ((vid.type == "dubbed" && !isDub) || (vid.type == "subbed" && isDub)) continue;
-
-								//type == dubbed/subbed
-								//host == mp4upload/trollvid
-								//id = i9w80jgcwbu7
-								// Getmp4UploadByFile()
-
-								/*
-                                void AddMp4(string id)
-                                {
-                                    string mp4 = ("https://www.mp4upload.com/embed-" + id);
-                                    string __d = DownloadString(mp4, tempThred);
-                                    if (!GetThredActive(tempThred)) { return; };
-                                    string mxLink = Getmp4UploadByFile(__d);
-                                    AddPotentialLink(normalEpisode, mxLink, "Dream Mp4Upload", 9);
-                                }*/
 
 								if (vid.host == "trollvid") {
 									string dUrl = "https://mp4.sh/embed/" + vid.id;
@@ -3057,9 +2957,7 @@ namespace CloudStreamForms.Core
 
 		public class AnimekisaProvider : BaseAnimeProvider
 		{
-			public AnimekisaProvider(CloudStreamCore _core) : base(_core)
-			{
-			}
+			public AnimekisaProvider(CloudStreamCore _core) : base(_core) { }
 
 			public override string Name => "AnimeKisa";
 
@@ -3071,7 +2969,7 @@ namespace CloudStreamForms.Core
 
 			public override void FishMainLink(string year, TempThread tempThred, MALData malData)
 			{
-				string search = activeMovie.title.name;
+				string search = ActiveMovie.title.name;
 				string d = DownloadString("https://animekisa.tv/search?q=" + search);
 				if (!GetThredActive(tempThred)) { return; }; // COPY UPDATE PROGRESS
 				const string lookFor = "<a class=\"an\" href=\"";
@@ -3098,16 +2996,16 @@ namespace CloudStreamForms.Core
 
 						string id = FindHTML(_d, "href=\"https://myanimelist.net/anime/", "/");
 
-						for (int z = 0; z < activeMovie.title.MALData.seasonData.Count; z++) {
-							for (int q = 0; q < activeMovie.title.MALData.seasonData[z].seasons.Count; q++) {
+						for (int z = 0; z < ActiveMovie.title.MALData.seasonData.Count; z++) {
+							for (int q = 0; q < ActiveMovie.title.MALData.seasonData[z].seasons.Count; q++) {
 								int malId;
 								lock (_lock) {
-									malId = activeMovie.title.MALData.seasonData[z].seasons[q].MalId;
+									malId = ActiveMovie.title.MALData.seasonData[z].seasons[q].MalId;
 								}
 								if (malId.ToString() == id) {
 									AnimekisaData ms;
 									lock (_lock) {
-										ms = activeMovie.title.MALData.seasonData[z].seasons[q].animekisaData;
+										ms = ActiveMovie.title.MALData.seasonData[z].seasons[q].animekisaData;
 									}
 
 									if (isDubbed) {
@@ -3145,9 +3043,9 @@ namespace CloudStreamForms.Core
 										ms.subbedEpisodes = episodes;
 									}
 									lock (_lock) {
-										var data = activeMovie.title.MALData.seasonData[z].seasons[q];
+										var data = ActiveMovie.title.MALData.seasonData[z].seasons[q];
 										data.animekisaData = ms;
-										activeMovie.title.MALData.seasonData[z].seasons[q] = data;
+										ActiveMovie.title.MALData.seasonData[z].seasons[q] = data;
 									}
 								}
 							}
@@ -3163,8 +3061,8 @@ namespace CloudStreamForms.Core
 			{
 				int len = 0;
 				try {
-					for (int q = 0; q < activeMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
-						var ms = activeMovie.title.MALData.seasonData[currentSeason].seasons[q].animekisaData;
+					for (int q = 0; q < ActiveMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
+						var ms = ActiveMovie.title.MALData.seasonData[currentSeason].seasons[q].animekisaData;
 						if ((ms.dubExists && isDub)) {
 							//  dstring = ms.baseUrl;
 							len += ms.dubbedEpisodes.Length;
@@ -3183,8 +3081,8 @@ namespace CloudStreamForms.Core
 			{
 				// var ms = activeMovie.title.MALData.seasonData[season];
 				int _episode = 0;
-				for (int q = 0; q < activeMovie.title.MALData.seasonData[season].seasons.Count; q++) {
-					var ms = activeMovie.title.MALData.seasonData[season].seasons[q].animekisaData;
+				for (int q = 0; q < ActiveMovie.title.MALData.seasonData[season].seasons.Count; q++) {
+					var ms = ActiveMovie.title.MALData.seasonData[season].seasons[q].animekisaData;
 
 					string[] data = new string[0];
 					if ((ms.dubExists && isDub)) {
@@ -3207,218 +3105,6 @@ namespace CloudStreamForms.Core
 				}
 			}
 		}
-
-		public class DubbedAnimeProvider : BaseAnimeProvider
-		{
-			public DubbedAnimeProvider(CloudStreamCore _core) : base(_core) { }
-
-			public override string Name => "DubbedAnime";
-			public override bool HasSub => false;
-
-			public override void GetHasDubSub(MALSeason data, out bool dub, out bool sub)
-			{
-				dub = data.dubbedAnimeData.dubExists;
-				sub = false;
-			}
-
-			public override void FishMainLink(string year, TempThread tempThred, MALData malData)
-			{
-				string _imdb = activeMovie.title.name; //"Attack On Titan";
-				string _imdb2 = activeMovie.title.ogName; //"Attack On Titan";
-				string imdb = _imdb.Replace(".", "").Replace("/", "");
-				string searchUrl = "https://bestdubbedanime.com/search/" + imdb;
-				string d = DownloadString(searchUrl); // TrustFailure (Authentication failed, see inner exception.)
-				if (!GetThredActive(tempThred)) { return; }; // COPY UPDATE PROGRESS
-
-				const string lookFor = "class=\"resulta\" href=\"";
-				string nameLookFor = "<div class=\"titleresults\">";
-
-				List<int> alreadyAdded = new List<int>();
-				while (d.Contains(nameLookFor)) {
-					string name = FindHTML(d, nameLookFor, "<", decodeToNonHtml: true);
-					if (name.ToLower().Contains(_imdb.ToLower()) || name.ToLower().Contains(_imdb2.ToLower())) {
-
-						string url = FindHTML(d, lookFor, "\"").Replace("\\/", "/");
-						string slug = url.Replace("//bestdubbedanime.com/", "");
-
-						int season = 0;
-						if (name.ToLower().Contains("2nd season")) {
-							season = 2;
-						}
-						else if (name.ToLower().Contains("3rd season")) {
-							season = 3;
-						}
-						if (season == 0) {
-							for (int i = 1; i < 7; i++) {
-								if (name.EndsWith(" " + i)) {
-									season = i;
-								}
-							}
-						}
-						if (season == 0) {
-							season = 1;
-						}
-						int part = 1;
-						for (int i = 2; i < 5; i++) {
-							if (name.ToLower().Contains("part " + i)) {
-								part = i;
-							}
-						}
-
-
-						int id = season + part * 1000;
-						if (!alreadyAdded.Contains(id)) {
-							alreadyAdded.Add(id);
-							try {
-								lock (_lock) {
-									var ms = activeMovie.title.MALData.seasonData[season].seasons[part - 1];
-									ms.dubbedAnimeData.dubExists = true;
-									ms.dubbedAnimeData.slug = slug;
-									activeMovie.title.MALData.seasonData[season].seasons[part - 1] = ms;
-								}
-							}
-							catch (Exception _ex) {
-								error("ERROR IN SEASON::" + season + "PART" + part + ": EX: " + _ex);
-								//throw;
-								// ERROR
-							}
-						}
-					}
-					d = RemoveOne(d, nameLookFor);
-				}
-			}
-
-			public List<string> GetAllLinks(int currentSeason, bool isDub)
-			{
-				if (!isDub) return new List<string>();
-
-				List<string> baseUrls = new List<string>();
-
-				try {
-					for (int q = 0; q < activeMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
-						var ms = activeMovie.title.MALData.seasonData[currentSeason].seasons[q].dubbedAnimeData;
-
-						if (ms.dubExists) {
-							if (!baseUrls.Contains(ms.slug)) {
-								baseUrls.Add(ms.slug);
-							}
-							//print("BASEURL " + ms.baseUrl);
-						}
-					}
-				}
-				catch (Exception _ex) {
-					error(Name + "|" + nameof(GetAllLinks) + "|" + _ex);
-				}
-				return baseUrls;
-			}
-
-			public override void LoadLinksTSync(int episode, int season, int normalEpisode, bool isDub, TempThread tempThred)
-			{
-				if (!isDub) return;
-
-				/*   TempThread tempthread = new TempThread();
-                   tempthread.typeId = 3; // MAKE SURE THIS IS BEFORE YOU CREATE THE THRED
-                   tempthread.Thread = new System.Threading.Thread(() => {
-                       try {*/
-				if (episode <= activeMovie.title.MALData.currentActiveDubbedMaxEpsPerSeason.Sum()) {
-					List<string> fwords = GetAllLinks(season, isDub);
-					print("SLUG1." + fwords[0]);
-					int sel = -1;
-					int floor = 0;
-					int subtract = 0;
-					if (activeMovie.title.MALData.currentActiveDubbedMaxEpsPerSeason != null) {
-						for (int i = 0; i < activeMovie.title.MALData.currentActiveDubbedMaxEpsPerSeason.Count; i++) {
-							int seling = floor + activeMovie.title.MALData.currentActiveDubbedMaxEpsPerSeason[i];
-
-							if (episode > floor && episode <= seling) {
-								sel = i;
-								subtract = floor;
-
-							}
-							//print(activeMovie.title.MALData.currentActiveMaxEpsPerSeason[i] + "<<");
-							floor += activeMovie.title.MALData.currentActiveDubbedMaxEpsPerSeason[i];
-						}
-					}
-
-					string fwordLink = fwords[sel];
-					print("SLUGOS: " + fwordLink);
-					DubbedAnimeEpisode dubbedEp = core.GetDubbedAnimeEpisode(fwordLink, episode - subtract);
-					if (!GetThredActive(tempThred)) { return; }; // COPY UPDATE PROGRESS
-					AddMirrors(dubbedEp, normalEpisode);
-
-
-				}
-				/*   }
-                   finally {
-                       JoinThred(tempthread);
-                   }
-               });
-               tempthread.Thread.Name = "DubAnime Thread";
-               tempthread.Thread.Start();*/
-			}
-
-			public void AddMirrors(DubbedAnimeEpisode dubbedEp, int normalEpisode)
-			{
-				string serverUrls = dubbedEp.serversHTML;
-
-				const string sLookFor = "hl=\"";
-				while (serverUrls.Contains(sLookFor)) {
-					string baseUrl = FindHTML(dubbedEp.serversHTML, "hl=\"", "\"");
-					string burl = "https://bestdubbedanime.com/xz/api/playeri.php?url=" + baseUrl + "&_=" + UnixTime;
-					print(burl);
-					string _d = DownloadString(burl);
-					int prio = -10; // SOME LINKS ARE EXPIRED, CAUSING VLC TO EXIT
-
-					string enlink = "\'";
-					if (_d.Contains("<source src=\"")) {
-						enlink = "\"";
-					}
-					string lookFor = "<source src=" + enlink;
-					while (_d.Contains(lookFor)) {
-
-						string vUrl = FindHTML(_d, lookFor, enlink);
-						if (vUrl != "") {
-							vUrl = "https:" + vUrl;
-						}
-						string label = FindHTML(_d, "label=" + enlink, enlink);
-						//if (GetFileSize(vUrl) > 0) {
-						AddPotentialLink(normalEpisode, vUrl, "DubbedAnime", prio, label.Replace("0p", "0") + "p");
-						//}
-
-						_d = RemoveOne(_d, lookFor);
-						try {
-							_d = RemoveOne(_d, "label=" + enlink);
-						}
-						catch (Exception _ex) {
-							error(_ex);
-						}
-					}
-					serverUrls = RemoveOne(serverUrls, sLookFor);
-				}
-			}
-
-			public override int GetLinkCount(int currentSeason, bool isDub, TempThread? tempThred)
-			{
-				if (isDub) {
-					//  activeMovie.title.MALData.currentActiveDubbedMaxEpsPerSeason = new List<int>();
-					List<int> dubbedSum = new List<int>();
-					List<string> dubbedAnimeLinks = GetAllLinks(currentSeason, isDub);
-					if (tempThred != null) {
-						if (!GetThredActive((TempThread)tempThred)) { return 0; }; // COPY UPDATE PROGRESS
-					}
-					for (int i = 0; i < dubbedAnimeLinks.Count; i++) {
-						DubbedAnimeEpisode ep = core.GetDubbedAnimeEpisode(dubbedAnimeLinks[i], 1);
-						dubbedSum.Add(ep.totalEp);
-						// activeMovie.title.MALData.currentActiveDubbedMaxEpsPerSeason.Add(ep.totalEp);
-					}
-					core.activeMovie.title.MALData.currentActiveDubbedMaxEpsPerSeason = dubbedSum;
-
-					return dubbedSum.Sum();
-				}
-				return 0;
-			}
-		}
-
 
 		#region AnimeFlixData
 		[Serializable]
@@ -3562,7 +3248,7 @@ namespace CloudStreamForms.Core
 						int id = season + part * 1000;
 						if (!alreadyAdded.Contains(id)) {
 							for (int q = 0; q < names.Count; q++) {
-								if (names[q].ToLower().Contains(malData.firstName.ToLower()) || names[q].ToLower().Contains(activeMovie.title.name.ToLower())) {
+								if (names[q].ToLower().Contains(malData.firstName.ToLower()) || names[q].ToLower().Contains(ActiveMovie.title.name.ToLower())) {
 									alreadyAdded.Add(id);
 									try {
 										string url = "https://animeflix.io/api/episodes?anime_id=" + d.id + "&limit=50&sort=DESC";
@@ -3602,9 +3288,9 @@ namespace CloudStreamForms.Core
 
 										MALSeason ms;
 										lock (_lock) {
-											ms = activeMovie.title.MALData.seasonData[season].seasons[part - 1];
+											ms = ActiveMovie.title.MALData.seasonData[season].seasons[part - 1];
 											ms.animeFlixData = flixData;
-											activeMovie.title.MALData.seasonData[season].seasons[part - 1] = ms;
+											ActiveMovie.title.MALData.seasonData[season].seasons[part - 1] = ms;
 										}
 									}
 									catch (Exception) {
@@ -3626,8 +3312,8 @@ namespace CloudStreamForms.Core
 			{
 				int len = 0;
 				try {
-					for (int q = 0; q < activeMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
-						var ms = activeMovie.title.MALData.seasonData[currentSeason].seasons[q].animeFlixData;
+					for (int q = 0; q < ActiveMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
+						var ms = ActiveMovie.title.MALData.seasonData[currentSeason].seasons[q].animeFlixData;
 						if ((ms.dubExists && isDub) || (ms.subExists && !isDub)) {
 							//  dstring = ms.baseUrl;
 							foreach (var ep in ms.EpisodesUrls) {
@@ -3645,22 +3331,17 @@ namespace CloudStreamForms.Core
 
 			public override void LoadLinksTSync(int episode, int season, int normalEpisode, bool isDub, TempThread tempThred)
 			{
-				/*
-                TempThread tempThred = new TempThread();
-                tempThred.typeId = 3; // MAKE SURE THIS IS BEFORE YOU CREATE THE THRED
-                tempThred.Thread = new System.Threading.Thread(() => {
-                    try {*/
 				int max = 0;
-				for (int q = 0; q < activeMovie.title.MALData.seasonData[season].seasons.Count; q++) {
-					var urls = activeMovie.title.MALData.seasonData[season].seasons[q].animeFlixData.EpisodesUrls;
+				for (int q = 0; q < ActiveMovie.title.MALData.seasonData[season].seasons.Count; q++) {
+					var urls = ActiveMovie.title.MALData.seasonData[season].seasons[q].animeFlixData.EpisodesUrls;
 					if (urls == null) {
 						return;
 					}
-					max += activeMovie.title.MALData.seasonData[season].seasons[q].animeFlixData.EpisodesUrls.Length;
+					max += ActiveMovie.title.MALData.seasonData[season].seasons[q].animeFlixData.EpisodesUrls.Length;
 					print("MAX::: " + max);
 
 					if (max > normalEpisode) {
-						var ms = activeMovie.title.MALData.seasonData[season].seasons[q];
+						var ms = ActiveMovie.title.MALData.seasonData[season].seasons[q];
 						if (ms.animeFlixData.EpisodesUrls.Length > normalEpisode) {
 							int id = ms.animeFlixData.EpisodesUrls[normalEpisode].id;
 
@@ -3682,20 +3363,9 @@ namespace CloudStreamForms.Core
 							}
 							return;
 						}
-						//var ms = activeMovie.title.MALData.seasonData[season].seasons[q].animeFlixData;
 					}
 				}
-
-				/* }
-                 finally {
-                     JoinThred(tempThred);
-                 }
-             });
-             tempThred.Thread.Name = "AnimeFlixThread";
-             tempThred.Thread.Start();*/
-
 			}
-
 		}
 		#endregion
 
@@ -3723,7 +3393,7 @@ namespace CloudStreamForms.Core
 						using HttpWebResponse response = (HttpWebResponse)request.GetResponse();
 						return response.ResponseUri.AbsoluteUri;
 					}
-					catch (Exception _ex) {
+					catch {
 						return "";
 					}
 				}
@@ -3739,7 +3409,7 @@ namespace CloudStreamForms.Core
 				try {
 					if (!isMovie) return;
 
-					string _d = DownloadString("https://v2.vidsrc.me/embed/" + activeMovie.title.id + "/");
+					string _d = DownloadString("https://v2.vidsrc.me/embed/" + ActiveMovie.title.id + "/");
 					if (!GetThredActive(tempThred)) { return; };
 
 					if (_d != "") {
@@ -3792,13 +3462,7 @@ namespace CloudStreamForms.Core
 			}
 			void GetLiveMovies123Links(int normalEpisode, int episode, int season, bool isMovie, string provider = "https://c123movies.com", TempThread tempThred = default) // https://movies123.live & https://c123movies.com
 			{
-				/*
-                TempThread tempThred = new TempThread();
-
-                tempThred.typeId = 3; // MAKE SURE THIS IS BEFORE YOU CREATE THE THRED
-                tempThred.Thread = new System.Threading.Thread(() => {
-                    try {*/
-				string _title = ToDown(activeMovie.title.name, replaceSpace: "-");
+				string _title = ToDown(ActiveMovie.title.name, replaceSpace: "-");
 
 				string _url = (isMovie ? (provider + "/movies/" + _title) : (provider + "/episodes/" + _title + "-season-" + season + "-episode-" + episode));
 
@@ -3806,7 +3470,7 @@ namespace CloudStreamForms.Core
 				if (!GetThredActive(tempThred)) { return; };
 				string release = FindHTML(d, "Release:</strong> ", "<");
 				bool succ = true;
-				if (release != activeMovie.title.year.Substring(0, 4)) {
+				if (release != ActiveMovie.title.year.Substring(0, 4)) {
 					succ = false;
 					if (isMovie) {
 						d = DownloadString(_url + "-1");
@@ -3825,18 +3489,9 @@ namespace CloudStreamForms.Core
 						AddEpisodesFromMirrors(tempThred, d, normalEpisode);
 					}
 				}
-				/*  }
-                  finally {
-                      JoinThred(tempThred);
-                  }
-              });
-              tempThred.Thread.Name = "GetLiveMovies123Links";
-              tempThred.Thread.Start();*/
 			}
 
-			public override void FishMainLinkTSync(TempThread tempThread)
-			{
-			}
+			public override void FishMainLinkTSync(TempThread tempThread) { }
 		}
 
 		class Movies123Provider : BaseMovieProvier
@@ -3849,16 +3504,16 @@ namespace CloudStreamForms.Core
 			{
 
 				try {
-					if (activeMovie.title.movieType == MovieType.Anime) { return; }
+					if (ActiveMovie.title.movieType == MovieType.Anime) { return; }
 
 					bool canMovie = GetSettings(MovieType.Movie);
 					bool canShow = GetSettings(MovieType.TVSeries);
 
-					string rinput = ToDown(activeMovie.title.name, replaceSpace: "+");
+					string rinput = ToDown(ActiveMovie.title.name, replaceSpace: "+");
 					// string yesmovies = "https://yesmoviess.to/search/?keyword=" + rinput.Replace("+", "-");
 
 					// SUB HD MOVIES 123
-					string movies123 = "https://movies123.pro/search/" + rinput.Replace("+", "%20") + ((activeMovie.title.movieType == MovieType.Movie || activeMovie.title.movieType == MovieType.AnimeMovie) ? "/movies" : "/series");
+					string movies123 = "https://movies123.pro/search/" + rinput.Replace("+", "%20") + ((ActiveMovie.title.movieType == MovieType.Movie || ActiveMovie.title.movieType == MovieType.AnimeMovie) ? "/movies" : "/series");
 
 					string d = DownloadString(movies123, tempThread);
 					if (!GetThredActive(tempThread)) { return; }; // COPY UPDATE PROGRESS
@@ -3949,7 +3604,7 @@ namespace CloudStreamForms.Core
 							// GET RATING IN INT (10-100)
 							if (!GetThredActive(tempThread)) { return; }; // COPY UPDATE PROGRESS
 
-							string s1 = activeMovie.title.rating;
+							string s1 = ActiveMovie.title.rating;
 							string s2 = movie123.imdbRating;
 							if (s2.ToLower() == "n/a") {
 								continue;
@@ -3961,10 +3616,10 @@ namespace CloudStreamForms.Core
 							int i1 = int.Parse(s1.Replace(".", ""));
 							int i2 = int.Parse(s2.Replace(".", ""));
 
-							if ((i1 == i2 || i1 == i2 - 1 || i1 == i2 + 1) && activeMovie.title.movieType == movie123.type && movie123.name.ToLower().Contains(activeMovie.title.name.ToLower())) { // --- THE SAME ---
+							if ((i1 == i2 || i1 == i2 - 1 || i1 == i2 + 1) && ActiveMovie.title.movieType == movie123.type && movie123.name.ToLower().Contains(ActiveMovie.title.name.ToLower())) { // --- THE SAME ---
 																																																	// counter = 10000;
 																																																	//print("FWORDLINK: " + fwordLink);
-								if (activeMovie.title.movieType == MovieType.TVSeries) {
+								if (ActiveMovie.title.movieType == MovieType.TVSeries) {
 									//<a data-ep-id="
 									string _d = DownloadString(fwordLink, tempThread);
 									const string _lookFor = "<a data-ep-id=\"";
@@ -3986,18 +3641,17 @@ namespace CloudStreamForms.Core
 					}
 
 					seasonData.Reverse();
-					if (MovieType.TVSeries == activeMovie.title.movieType) {
-						Title t = activeMovie.title;
+					if (MovieType.TVSeries == ActiveMovie.title.movieType) {
+						Title t = ActiveMovie.title;
 						t.movies123MetaData = new Movies123MetaData() { movieLink = "", seasonData = seasonData };
 						core.activeMovie.title = t;
 					}
 
-					core.movie123FishingDone?.Invoke(null, activeMovie);
-					core.fishingDone?.Invoke(null, activeMovie);
+					core.FishingDone?.Invoke(null, ActiveMovie);
 
 					// MonitorFunc(() => print(">>>" + activeMovie.title.movies123MetaData.seasonData.Count),0);
 				}
-				catch (Exception _ex) { }
+				catch { }
 			}
 
 
@@ -4010,10 +3664,10 @@ namespace CloudStreamForms.Core
                     tempThred.typeId = 1; // MAKE SURE THIS IS BEFORE YOU CREATE THE THRED
                     tempThred.Thread = new System.Threading.Thread(() => {
                         try {*/
-					if (activeMovie.title.movies123MetaData.movieLink != null) {
-						if (activeMovie.title.movieType == MovieType.TVSeries) {
+					if (ActiveMovie.title.movies123MetaData.movieLink != null) {
+						if (ActiveMovie.title.movieType == MovieType.TVSeries) {
 							int normalSeason = season - 1;
-							List<Movies123SeasonData> seasonData = activeMovie.title.movies123MetaData.seasonData;
+							List<Movies123SeasonData> seasonData = ActiveMovie.title.movies123MetaData.seasonData;
 							// ---- TO PREVENT ERRORS START ----
 							if (seasonData != null) {
 								if (seasonData.Count > normalSeason) {
@@ -4034,7 +3688,7 @@ namespace CloudStreamForms.Core
 
 							Parallel.For(0, MIRROR_COUNT, (f) => {
 								print(">::" + f);
-								GetLinkServer(f, activeMovie.title.movies123MetaData.movieLink, tempThread: tempThred);
+								GetLinkServer(f, ActiveMovie.title.movies123MetaData.movieLink, tempThread: tempThred);
 							});
 
 						}
@@ -4087,51 +3741,6 @@ namespace CloudStreamForms.Core
 			}
 		}
 
-		class FullMoviesProvider : BaseMovieProvier
-		{
-			public override string Name => "FreeFullMovies";
-
-			public FullMoviesProvider(CloudStreamCore _core) : base(_core) { }
-
-			public override void FishMainLinkTSync(TempThread tempThread) { }
-
-			public override void LoadLinksTSync(int episode, int season, int normalEpisode, bool isMovie, TempThread tempThred)
-			{
-				try {
-					if (!isMovie) return;
-					// DONT USE fsapi.xyz, they have captcha
-					// freefullmovies has relocated
-
-					/*
-                    string url = "https://www.freefullmovies.zone/movies/watch." + ToDown(activeMovie.title.name, true, "-").Replace(" ", "-") + "-" + activeMovie.title.year.Substring(0, 4) + ".movie.html";
-                    print("SIZONE;:: " + url);
-                    string d = DownloadString(url, tempThred);
-
-                    if (!GetThredActive(tempThred)) { return; }; // COPY UPDATE PROGRESS
-                    string find = "<source src=\"";
-                    string link = FindHTML(d, find, "\"");
-                    if (link != "") {
-                        double dSize = GetFileSize(link);
-                        if (dSize > 100) { // TO REMOVE TRAILERS
-                            AddPotentialLink(episode, link, "HD FullMovies", 13);
-                        }
-                    } */
-					//string __d = DownloadString("https://1movietv.com/playstream/" + activeMovie.title.id, tempThred);
-					//GetMovieTv(episode, __d, tempThred);
-				}
-				catch (Exception _ex) {
-					error("PROVIDER ERROR: " + _ex);
-				}
-				/* }
-                 finally {
-                     JoinThred(_tempThred);
-                 }
-             });
-             _tempThred.Thread.Name = "Movietv";
-             _tempThred.Thread.Start();*/
-			}
-		}
-
 		class TheMovies123Provider : BaseMovieProvier
 		{
 			public override string Name => "TheMovies123";
@@ -4143,13 +3752,7 @@ namespace CloudStreamForms.Core
 			public override void LoadLinksTSync(int episode, int season, int normalEpisode, bool isMovie, TempThread tempThred)
 			{
 				try {
-					/*
-                    TempThread tempThred = new TempThread();
-
-                    tempThred.typeId = 3; // MAKE SURE THIS IS BEFORE YOU CREATE THE THRED
-                    tempThred.Thread = new System.Threading.Thread(() => {
-                        try {*/
-					string extra = ToDown(activeMovie.title.name, true, "-") + (isMovie ? ("-" + activeMovie.title.year.Substring(0, 4)) : ("-" + season + "x" + episode));
+					string extra = ToDown(ActiveMovie.title.name, true, "-") + (isMovie ? ("-" + ActiveMovie.title.year.Substring(0, 4)) : ("-" + season + "x" + episode));
 					string d = DownloadString("https://on.the123movies.eu/" + extra);
 					if (!GetThredActive(tempThred)) { return; }; // COPY UPDATE PROGRESS
 					string ts = FindHTML(d, "data-vs=\"", "\"");
@@ -4161,13 +3764,6 @@ namespace CloudStreamForms.Core
 				catch (Exception _ex) {
 					error("PROVIDER ERROR: " + _ex);
 				}
-				/* }
-                 finally {
-                     JoinThred(tempThred);
-                 }
-             });
-             tempThred.Thread.Name = "GetThe123movies Thread";
-             tempThred.Thread.Start();*/
 			}
 		}
 
@@ -4183,14 +3779,9 @@ namespace CloudStreamForms.Core
 			{
 				try {
 					if (isMovie) return;
-					/*
-                    TempThread tempThred = new TempThread();
-                    tempThred.typeId = 3; // MAKE SURE THIS IS BEFORE YOU CREATE THE THRED
-                    tempThred.Thread = new System.Threading.Thread(() => {
-                        try {*/
 
 					// GET MOVIE TV IS NOT WORKING ANYMORE
-					string d = DownloadString("https://www.themoviedb.org/search/tv?query=" + activeMovie.title.name + "&language=en-US");
+					string d = DownloadString("https://www.themoviedb.org/search/tv?query=" + ActiveMovie.title.name + "&language=en-US");
 					if (!GetThredActive(tempThred)) { return; }; // COPY UPDATE PROGRESS
 					if (d != "") {
 						string tmdbId = FindHTML(d, "<a id=\"tv_", "\"");
@@ -4204,13 +3795,6 @@ namespace CloudStreamForms.Core
 				catch (Exception _ex) {
 					error("PROVIDER ERROR: " + _ex);
 				}
-				/* }
-                 finally {
-                     JoinThred(tempThred);
-                 }
-             });
-             tempThred.Thread.Name = "Movietv";
-             tempThred.Thread.Start();*/
 			}
 		}
 
@@ -4223,12 +3807,12 @@ namespace CloudStreamForms.Core
 			public override void FishMainLinkTSync(TempThread tempThread)
 			{
 				try {
-					if (activeMovie.title.movieType == MovieType.Anime) { return; }
+					if (ActiveMovie.title.movieType == MovieType.Anime) { return; }
 
 					bool canMovie = GetSettings(MovieType.Movie);
 					bool canShow = GetSettings(MovieType.TVSeries);
 
-					string rinput = ToDown(activeMovie.title.name, replaceSpace: "+");
+					string rinput = ToDown(ActiveMovie.title.name, replaceSpace: "+");
 					string url = "https://www3.watchserieshd.tv/search.html?keyword=" + rinput.Replace("+", "%20");
 
 					string d = DownloadString(url);
@@ -4294,7 +3878,7 @@ namespace CloudStreamForms.Core
 					core.activeMovie.title.watchSeriesHdMetaData = new List<WatchSeriesHdMetaData>();
 					other = other.OrderBy(t => t.season).ToList();
 					for (int i = 0; i < other.Count; i++) {
-						string s1 = activeMovie.title.rating;
+						string s1 = ActiveMovie.title.rating;
 						string s2 = other[i].imdbScore;
 						if (s2.ToLower() == "n/a") {
 							continue;
@@ -4307,18 +3891,17 @@ namespace CloudStreamForms.Core
 						int i2 = int.Parse(s2.Replace(".", ""));
 
 						// print(i1 + "||" + i2 + "START:::" + ToDown(other[i].removedTitle.Replace("-", "").Replace(":", ""), replaceSpace: "") + "<<>>" + ToDown(activeMovie.title.name.Replace("-", "").Replace(":", ""), replaceSpace: "") + ":::");
-						if ((i1 == i2 || i1 == i2 - 1 || i1 == i2 + 1) && ToDown(other[i].removedTitle.Replace("-", "").Replace(":", ""), replaceSpace: "") == ToDown(activeMovie.title.name.Replace("-", "").Replace(":", ""), replaceSpace: "")) {
+						if ((i1 == i2 || i1 == i2 - 1 || i1 == i2 + 1) && ToDown(other[i].removedTitle.Replace("-", "").Replace(":", ""), replaceSpace: "") == ToDown(ActiveMovie.title.name.Replace("-", "").Replace(":", ""), replaceSpace: "")) {
 
-							if (other[i].released == activeMovie.title.year.Substring(0, 4) || activeMovie.title.movieType != MovieType.Movie) {
+							if (other[i].released == ActiveMovie.title.year.Substring(0, 4) || ActiveMovie.title.movieType != MovieType.Movie) {
 								//    print("TRUE:::::" + other[i].imdbScore + "|" + other[i].released + "|" + other[i].href + "|" + other[i].title + "|" + other[i].removedTitle);
 								if (other[i].href != "") {
-									activeMovie.title.watchSeriesHdMetaData.Add(new WatchSeriesHdMetaData() { season = other[i].season, url = other[i].href });
+									ActiveMovie.title.watchSeriesHdMetaData.Add(new WatchSeriesHdMetaData() { season = other[i].season, url = other[i].href });
 								}
 							}
 						}
 					}
-					core.watchSeriesFishingDone?.Invoke(null, activeMovie);
-					core.fishingDone?.Invoke(null, activeMovie);
+					core.FishingDone?.Invoke(null, ActiveMovie);
 				}
 				catch (Exception _ex) {
 					error(_ex);
@@ -4327,23 +3910,18 @@ namespace CloudStreamForms.Core
 
 			public override void LoadLinksTSync(int episode, int season, int normalEpisode, bool isMovie, TempThread tempThred)
 			{
-				/*
-                TempThread tempThred = new TempThread();
-                tempThred.typeId = 3; // MAKE SURE THIS IS BEFORE YOU CREATE THE THRED
-                tempThred.Thread = new System.Threading.Thread(() => {
-                    try {*/
 				try {
-					if (activeMovie.title.watchSeriesHdMetaData.Count == 1) {
-						season = activeMovie.title.watchSeriesHdMetaData[0].season;
+					if (ActiveMovie.title.watchSeriesHdMetaData.Count == 1) {
+						season = ActiveMovie.title.watchSeriesHdMetaData[0].season;
 					}
-					for (int i = 0; i < activeMovie.title.watchSeriesHdMetaData.Count; i++) {
-						var meta = activeMovie.title.watchSeriesHdMetaData[i];
+					for (int i = 0; i < ActiveMovie.title.watchSeriesHdMetaData.Count; i++) {
+						var meta = ActiveMovie.title.watchSeriesHdMetaData[i];
 						if (meta.season == season) {
 							string href = "https://www3.watchserieshd.tv" + meta.url + "-episode-" + (normalEpisode + 1);
 							string d = DownloadString(href, tempThred);
 							if (!GetThredActive(tempThred)) { return; }; // COPY UPDATE PROGRESS
 							string dError = "<h1 class=\"entry-title\">Page not found</h1>";
-							if (d.Contains(dError) && activeMovie.title.movieType == MovieType.Movie) {
+							if (d.Contains(dError) && ActiveMovie.title.movieType == MovieType.Movie) {
 								href = "https://www3.watchserieshd.tv" + meta.url + "-episode-0";
 								d = DownloadString(href, tempThred);
 								if (!GetThredActive(tempThred)) { return; }; // COPY UPDATE PROGRESS
@@ -4361,206 +3939,6 @@ namespace CloudStreamForms.Core
 				catch (Exception _ex) {
 					error("PROVIDER ERROR: " + _ex);
 				}
-				/*  }
-                  finally {
-                      JoinThred(tempThred);
-                  }
-              });
-              tempThred.Thread.Name = "GetLinksFromWatchSeries";
-              tempThred.Thread.Start();*/
-			}
-		}
-
-		class FMoviesProvider : BaseMovieProvier
-		{
-			public override string Name => "FMovies";
-
-			public FMoviesProvider(CloudStreamCore _core) : base(_core) { }
-
-			public override void FishMainLinkTSync(TempThread tempThread)
-			{
-				if (!FMOVIES_ENABLED) return;
-
-
-				try {
-					if (activeMovie.title.movieType == MovieType.Anime) { return; }
-
-					bool canMovie = GetSettings(MovieType.Movie);
-					bool canShow = GetSettings(MovieType.TVSeries);
-
-					string rinput = ToDown(activeMovie.title.name, replaceSpace: "+");
-					string url = "https://fmovies.to/search?keyword=" + rinput.Replace("+", "%20");
-					string realName = activeMovie.title.name;
-					bool isMovie = (activeMovie.title.movieType == MovieType.Movie || activeMovie.title.movieType == MovieType.AnimeMovie);
-					string realYear = activeMovie.title.year;
-
-					List<FMoviesData> data = new List<FMoviesData>();
-
-					string d = HTMLGet(url, "https://fmovies.to");
-					if (!GetThredActive(tempThread)) { return; }; // COPY UPDATE PROGRESS
-					string lookFor = "class=\"name\" href=\"/film/";
-					while (d.Contains(lookFor)) {
-						string _url = FindHTML(d, lookFor, "\"");
-						//print(_url);
-						string ajax = FindHTML(d, "data-tip=\"ajax/film/", "\"");
-
-						d = RemoveOne(d, lookFor);
-						string name = FindHTML(d, ">", "<");
-
-						bool same = false;
-						int season = 0;
-						same = name.Replace(" ", "").ToLower() == realName.Replace(" ", "").ToLower();
-						if (!same && !isMovie) {
-							for (int i = 1; i < 100; i++) {
-								if (name.Replace(" ", "").ToLower() == realName.Replace(" ", "").ToLower() + i) {
-									same = true;
-									season = i;
-									break;
-								}
-							}
-						}
-
-						//  var result = Regex.Replace(name, @"[0-9\-]", string.Empty);
-
-						bool isSame = false;
-						if (same) {
-							if (isMovie) {
-								string ajaxDownload = DownloadString("https://fmovies.to/ajax/film/" + ajax);
-								if (!GetThredActive(tempThread)) { return; }; // COPY UPDATE PROGRESS
-								if (ajaxDownload == "") {
-									print("AJAX");
-								}
-								else {
-									string ajaxYear = FindHTML(ajaxDownload, "<span>", "<");
-									string ajaxIMDb = FindHTML(ajaxDownload, "<i>IMDb</i> ", "<"); // 9.0 = 9
-									if (ajaxYear == realYear) {
-										isSame = true;
-									}
-								}
-							}
-							else {
-								isSame = true;
-							}
-						}
-						if (isSame) {
-							data.Add(new FMoviesData() { url = _url, season = season });
-							print(name + "|" + _url + "|" + season);
-						}
-
-						// print(ajaxDownload);
-					}
-					if (!GetThredActive(tempThread)) { return; }; // COPY UPDATE PROGRESS
-					core.activeMovie.title.fmoviesMetaData = data;
-					core.fmoviesFishingDone?.Invoke(null, activeMovie);
-					core.fishingDone?.Invoke(null, activeMovie);
-				}
-				catch (Exception _ex) {
-
-				}
-			}
-
-			public override void LoadLinksTSync(int episode, int season, int normalEpisode, bool isMovie, TempThread tempThred)
-			{
-				if (!FMOVIES_ENABLED) return;
-
-				/*   TempThread tempThred = new TempThread();
-
-                   tempThred.typeId = 3; // MAKE SURE THIS IS BEFORE YOU CREATE THE THRED
-                   tempThred.Thread = new System.Threading.Thread(() => {
-                       try {*/
-				print("FMOVIESMETA:" + activeMovie.title.fmoviesMetaData.RString());
-
-				if (activeMovie.title.fmoviesMetaData == null) return;
-				// bool isMovie = (activeMovie.title.movieType == MovieType.Movie || activeMovie.title.movieType == MovieType.AnimeMovie);
-				string url = "";
-				for (int i = 0; i < activeMovie.title.fmoviesMetaData.Count; i++) {
-					if (activeMovie.title.fmoviesMetaData[i].season == season || isMovie) {
-						url = activeMovie.title.fmoviesMetaData[i].url;
-						break;
-					}
-				}
-				print("FMOVIESURL:" + url);
-
-				if (url == "") return;
-
-				string d = HTMLGet("https://fmovies.to/film/" + url, "https://fmovies.to");
-				string dataTs = FindHTML(d, "data-ts=\"", "\"");
-				string dataId = FindHTML(d, "data-id=\"", "\"");
-				string dataEpId = FindHTML(d, "data-epid=\"", "\"");
-				string _url = "https://fmovies.to/ajax/film/servers/" + dataId + "?episode=" + dataEpId + "&ts=" + dataTs + "&_=" + Random(100, 999); //
-				print(_url);
-				//d = DownloadString(_url);
-				d = HTMLGet(_url, "https://fmovies.to");
-
-				print(d);
-
-				string cloudGet = "";
-				string cLookFor = "<a  data-id=\\\"";
-				while (d.Contains(cLookFor)) {
-					string _cloudGet = FindHTML(d, cLookFor, "\\\"");
-					d = RemoveOne(d, cLookFor);
-					string _ep = FindHTML(d, "\">", "<");
-					int ep = 0; if (!isMovie) ep = int.Parse(_ep);
-					if (ep == episode || isMovie) {
-						cloudGet = _cloudGet;
-						d = "";
-					}
-				}
-				/*{"html":"<div id=\"servers\">\n                        
-    <div class=\"server row\" data-type=\"iframe\" data-id=\"28\">\n            
-    <label class=\"name col-md-4 col-sm-5\">\n                
-    <i class=\"fa fa-server\"><\/i>\n                 MyCloud\n            <\/label>\n            
-    <div class=\"col-md-20 col-sm-19\">\n                                <ul class=\"episodes range active\"\n                    
-    data-range-id=\"0\">\n                                        <li>\n                        
-    <a  data-id=\"b5a4388f1a2fadb87f94fde2abf3a3e85288d96026d6be3bf4920f6aa718e12c\" href=\"\/film\/iron-man-3.885o\/1n4rzyv\">HD<\/a>\n                    
-    <\/li>\n                                    <\/ul>\n                            <\/div>\n        <\/div>\n                            
-    <div class=\"server row\" data-type=\"iframe\" data-id=\"36\">\n            <label class=\"name col-md-4 col-sm-5\">\n                
-    <i class=\"fa fa-server\"><\/i>\n                 F5 - HQ\n            <\/label>\n            <div class=\"col-md-20 col-sm-19\">\n                                
-    <ul class=\"episodes range active\"\n                    data-range-id=\"0\">\n                                        <li>\n                        
-    <a  data-id=\"05912e0bb9a837fc540e8ddc66beb8f2047667d192b2bee4aa9ba8e744f0eaea\" href=\"\/film\/iron-man-3.885o\/pr65wqx\">HD<\/a>\n                    
-    <\/li>\n                                    <\/ul>\n                            <\/div>\n        <\/div>\n                            
-    <div class=\"server row\" data-type=\"iframe\" data-id=\"39\">\n            <label class=\"name col-md-4 col-sm-5\">\n                
-    <i class=\"fa fa-server\"><\/i>\n                 Hydrax\n            <\/label>\n            <div class=\"col-md-20 col-sm-19\">\n                                
-    <ul class=\"episodes range active\"\n                    data-range-id=\"0\">\n                                        <li>\n                        
-    <a class=\"active\" data-id=\"41d881669367be4d23b70715f40410adac4788764836c1b80801639f08621e96\" href=\"\/film\/iron-man-3.885o\/m280668\">HD<\/a>\n                    
-    <\/li>\n                                    <\/ul>\n                            <\/div>\n        <\/div>\n            <\/div>"}
-
-
-    https://prettyfast.to/e/66vvrk\/fe1541bb8d2aeaec6bb7e500d070b2ec?sub=https%253A%252F%252Fstaticf.akacdn.ru%252Ff%252Fsubtitle%252F7309.vtt%253Fv1*/
-				// https://fmovies.to/ajax/episode/info?ts=1574168400&_=694&id=d49ac231d1ddf83114eadf1234a1f5d8136dc4a5b6db299d037c06804b37b1ab&server=28
-				// https://fmovies.to/ajax/episode/info?ts=1574168400&_=199&id=1c7493cc7bf3cc16831ff9bf1599ceb6f4be2a65a57143c5a24c2dbea99104de&server=97
-				d = "";
-				int errorCount = 0;
-				while (d == "" && errorCount < 10) {
-					errorCount++;
-					string rD = "https://fmovies.to/ajax/episode/info?ts=" + dataTs + "&_=" + Random(100, 999) + "&id=" + cloudGet + "&server=" + Random(1, 99);
-					print(rD);
-					d = HTMLGet(rD, "https://fmovies.to");
-				}
-				if (d != "") {
-					string lookFor = "\"target\":\"";
-					while (d.Contains(lookFor)) {
-						string __url = FindHTML(d, lookFor, "\"").Replace("\\/", "/");
-						string dl = HTMLGet(__url, "https://fmovies.to");
-						string _lookFor = "\"file\":\"";
-						while (dl.Contains(_lookFor)) {
-							string __link = FindHTML(dl, _lookFor, "\"");
-							if (__link != "") {
-
-								AddPotentialLink(normalEpisode, __link, "HD FMovies", -1);  //"https://bharadwajpro.github.io/m3u8-player/player/#"+ __link, "HD FMovies", 30); // https://bharadwajpro.github.io/m3u8-player/player/#
-							}
-							dl = RemoveOne(dl, _lookFor);
-						}
-						d = RemoveOne(d, lookFor);
-					}
-				}
-				/*  }
-                  finally {
-                      JoinThred(tempThred);
-                  }
-              });
-              tempThred.Thread.Name = "GetFmoviesLinks";
-              tempThred.Thread.Start();*/
 			}
 		}
 
@@ -4614,6 +3992,7 @@ namespace CloudStreamForms.Core
 			public override string Name => "LookMovie";
 			public LookmovieProvider(CloudStreamCore _core) : base(_core) { }
 
+#pragma warning disable CS0649
 			[System.Serializable]
 			public struct LookSeasonEpisode
 			{
@@ -4622,10 +4001,10 @@ namespace CloudStreamForms.Core
 				public int id_episode;
 				public string season;
 			}
-
+#pragma warning restore CS0649
 			public override void LoadLinksTSync(int episode, int season, int normalEpisode, bool isMovie, TempThread tempThred)
 			{
-				string _href = activeMovie.title.lookmovieMetadata;
+				string _href = ActiveMovie.title.lookmovieMetadata;
 				if (!_href.IsClean()) return;
 
 				string d = DownloadString("https://lookmovie.ag" + _href);
@@ -4673,10 +4052,10 @@ namespace CloudStreamForms.Core
 			public override void FishMainLinkTSync(TempThread tempThread)
 			{
 				try {
-					string search = activeMovie.title.name;
-					string year = activeMovie.title.year[0..4];
+					string search = ActiveMovie.title.name;
+					string year = ActiveMovie.title.year[0..4];
 
-					string searchResults = DownloadString($"https://lookmovie.ag/{(activeMovie.title.IsMovie ? "movies" : "shows")}/search/?q={search}");
+					string searchResults = DownloadString($"https://lookmovie.ag/{(ActiveMovie.title.IsMovie ? "movies" : "shows")}/search/?q={search}");
 					var doc = new HtmlAgilityPack.HtmlDocument();
 					doc.LoadHtml(searchResults);
 					var _res = doc.QuerySelectorAll("div");
@@ -4706,216 +4085,21 @@ namespace CloudStreamForms.Core
 
 		}
 
-		class FMoviesUpdatedProvider : BaseMovieProvier
-		{
-			public override string Name => "FMovies";
-
-			public FMoviesUpdatedProvider(CloudStreamCore _core) : base(_core) { }
-
-			public override void FishMainLinkTSync(TempThread tempThread)
-			{
-				if (!FMOVIES_ENABLED) return;
-
-				try {
-					if (activeMovie.title.movieType == MovieType.Anime) { return; }
-
-					bool canMovie = GetSettings(MovieType.Movie);
-					bool canShow = GetSettings(MovieType.TVSeries);
-
-					string rinput = ToDown(activeMovie.title.name, replaceSpace: "+");
-					string url = "https://fmovies.to/search?keyword=" + rinput.Replace("+", "%20");
-					string realName = activeMovie.title.name;
-					bool isMovie = (activeMovie.title.movieType == MovieType.Movie || activeMovie.title.movieType == MovieType.AnimeMovie);
-					string realYear = activeMovie.title.year;
-
-					List<FMoviesData> data = new List<FMoviesData>();
-
-					string d = HTMLGet(url, "https://fmovies.to");
-					if (!GetThredActive(tempThread)) { return; }; // COPY UPDATE PROGRESS
-					string lookFor = "class=\"name\" href=\"/film/";
-					while (d.Contains(lookFor)) {
-						string _url = FindHTML(d, lookFor, "\"");
-						//print(_url);
-						string ajax = FindHTML(d, "data-tip=\"ajax/film/", "\"");
-
-						d = RemoveOne(d, lookFor);
-						string name = FindHTML(d, ">", "<");
-
-						bool same = false;
-						int season = 0;
-						same = name.Replace(" ", "").ToLower() == realName.Replace(" ", "").ToLower();
-						if (!same && !isMovie) {
-							for (int i = 1; i < 100; i++) {
-								if (name.Replace(" ", "").ToLower() == realName.Replace(" ", "").ToLower() + i) {
-									same = true;
-									season = i;
-									break;
-								}
-							}
-						}
-
-						//  var result = Regex.Replace(name, @"[0-9\-]", string.Empty);
-
-						bool isSame = false;
-						if (same) {
-							if (isMovie) {
-								string ajaxDownload = DownloadString("https://fmovies.to/ajax/film/" + ajax);
-								if (!GetThredActive(tempThread)) { return; }; // COPY UPDATE PROGRESS
-								if (ajaxDownload == "") {
-									print("AJAX");
-								}
-								else {
-									string ajaxYear = FindHTML(ajaxDownload, "<span>", "<");
-									string ajaxIMDb = FindHTML(ajaxDownload, "<i>IMDb</i> ", "<"); // 9.0 = 9
-									if (ajaxYear == realYear) {
-										isSame = true;
-									}
-								}
-							}
-							else {
-								isSame = true;
-							}
-						}
-						if (isSame) {
-							data.Add(new FMoviesData() { url = _url, season = season });
-							print(name + "|" + _url + "|" + season);
-						}
-
-						// print(ajaxDownload);
-					}
-					if (!GetThredActive(tempThread)) { return; }; // COPY UPDATE PROGRESS
-					core.activeMovie.title.fmoviesMetaData = data;
-					core.fmoviesFishingDone?.Invoke(null, activeMovie);
-					core.fishingDone?.Invoke(null, activeMovie);
-				}
-				catch (Exception _ex) {
-
-				}
-			}
-
-			public override void LoadLinksTSync(int episode, int season, int normalEpisode, bool isMovie, TempThread tempThred)
-			{
-				if (!FMOVIES_ENABLED) return;
-				print("FMOVIESMETA:" + activeMovie.title.fmoviesMetaData.FString());
-
-				if (activeMovie.title.fmoviesMetaData == null) return;
-				string url = "";
-				for (int i = 0; i < activeMovie.title.fmoviesMetaData.Count; i++) {
-					if (activeMovie.title.fmoviesMetaData[i].season == season || isMovie) {
-						url = activeMovie.title.fmoviesMetaData[i].url;
-						break;
-					}
-				}
-
-				if (url == "") return;
-
-				string _referer = "https://fmovies.to/film/" + url;
-				string mkey = "";
-
-				string d = HTMLGet(_referer, "https://fmovies.to");
-				string dataTs = FindHTML(d, "data-ts=\"", "\"");
-				string dataId = FindHTML(d, "data-id=\"", "\"");
-				string dataEpId = FindHTML(d, "data-epid=\"", "\"");
-
-				string _url = "https://fmovies.to/ajax/film/servers?id=" + dataId + "&episode=" + dataEpId + "&ts=" + dataTs + "&_=" + Random(100, 999);
-				print("____:::IRLLADLA " + _url);
-
-				string serverResponse = DownloadString(_url).Replace("\\n", "").Replace("\\", "").Replace("  ", "");
-				//   print(serverResponse);
-				string real = FindHTML(serverResponse, "{\"html\":\"", "\"}");
-				// real = real.Substring(0, real.Length - 2);
-
-				print("REALLLLL:::: " + real + "|" + serverResponse);
-
-				const string lookFor = "data-id=\"";
-				while (real.Contains(lookFor)) {
-					string id = FindHTML(real, lookFor, "\"");
-					real = RemoveOne(real, lookFor);
-					string name = FindHTML(real, "\">", "<");
-					string href = "https://fmovies.to" + FindHTML(real, "href=\"", "\"");
-					if (mkey == "") {
-						mkey = core.GetMcloudKey(href);
-					}
-
-					if (name == "MyCloud") {
-						core.AddMCloud(id, mkey, dataTs, "https://fmovies.to", normalEpisode, href, false);
-					}
-					else if (name == "Streamtape") {
-						core.AddStreamTape(id, mkey, dataTs, "https://fmovies.to", normalEpisode, href, false);
-					}
-
-					print("FAFF:A:F:AF:FA:: " + name + "|" + id);
-				}
-				/*
-                d = HTMLGet(_url, "https://fmovies.to");
-
-                print(d);*/
-
-				return;
-				/*
-                string cloudGet = "";
-                string cLookFor = "<a  data-id=\\\"";
-                while (d.Contains(cLookFor)) {
-                    string _cloudGet = FindHTML(d, cLookFor, "\\\"");
-                    d = RemoveOne(d, cLookFor);
-                    string _ep = FindHTML(d, "\">", "<");
-                    int ep = 0; if (!isMovie) ep = int.Parse(_ep);
-                    if (ep == episode || isMovie) {
-                        cloudGet = _cloudGet;
-                        d = "";
-                    }
-                } 
-                d = "";
-                int errorCount = 0;
-                while (d == "" && errorCount < 10) {
-                    errorCount++;
-                    string rD = "https://fmovies.to/ajax/episode/info?ts=" + dataTs + "&_=" + Random(100, 999) + "&id=" + cloudGet + "&server=" + Random(1, 99);
-                    print(rD);
-                    d = HTMLGet(rD, "https://fmovies.to");
-                }
-                if (d != "") {
-                    string lookFor = "\"target\":\"";
-                    while (d.Contains(lookFor)) {
-                        string __url = FindHTML(d, lookFor, "\"").Replace("\\/", "/");
-                        string dl = HTMLGet(__url, "https://fmovies.to");
-                        string _lookFor = "\"file\":\"";
-                        while (dl.Contains(_lookFor)) {
-                            string __link = FindHTML(dl, _lookFor, "\"");
-                            if (__link != "") {
-
-                                AddPotentialLink(normalEpisode, __link, "HD FMovies", -1);  //"https://bharadwajpro.github.io/m3u8-player/player/#"+ __link, "HD FMovies", 30); // https://bharadwajpro.github.io/m3u8-player/player/#
-                            }
-                            dl = RemoveOne(dl, _lookFor);
-                        }
-                        d = RemoveOne(d, lookFor);
-                    }
-                }*/
-				/*  }
-                  finally {
-                      JoinThred(tempThred);
-                  }
-              });
-              tempThred.Thread.Name = "GetFmoviesLinks";
-              tempThred.Thread.Start();*/
-			}
-		}
-
 		class YesMoviesProvider : BaseMovieProvier
 		{
 			public override string Name => "YesMovies";
 
 			public YesMoviesProvider(CloudStreamCore _core) : base(_core) { }
 
-			// DONT USE tinyzonetv recaptcha
 			public override void FishMainLinkTSync(TempThread tempThread)
 			{
 				try {
-					if (activeMovie.title.movieType == MovieType.Anime) { return; }
+					if (ActiveMovie.title.movieType == MovieType.Anime) { return; }
 
 					bool canMovie = GetSettings(MovieType.Movie);
 					bool canShow = GetSettings(MovieType.TVSeries);
 
-					string rinput = ToDown(activeMovie.title.name, replaceSpace: "+");
+					string rinput = ToDown(ActiveMovie.title.name, replaceSpace: "+");
 					string yesmovies = "https://yesmoviess.to/search/?keyword=" + rinput.Replace("+", "-");
 
 
@@ -4943,7 +4127,7 @@ namespace CloudStreamForms.Core
 						string imdbData = FindHTML(_d, "IMDb: ", "<").Replace("\n", "").Replace(" ", "").Replace("	", "");
 						//  string year = FindHTML(_d, "<div class=\"jt-info\">", "<").Replace("\n", "").Replace(" ", "").Replace("	", "").Replace("	", "");
 
-						string s1 = activeMovie.title.rating;
+						string s1 = ActiveMovie.title.rating;
 						string s2 = imdbData;
 						if (s2.ToLower() == "n/a") {
 							continue;
@@ -4955,15 +4139,14 @@ namespace CloudStreamForms.Core
 						int i1 = int.Parse(s1.Replace(".", ""));
 						int i2 = int.Parse(s2.Replace(".", ""));
 						//activeMovie.title.year.Substring(0, 4) == year
-						if (ToDown(activeMovie.title.name, replaceSpace: "") == ToDown(realtitle, replaceSpace: "") && (i1 == i2 || i1 == i2 - 1 || i1 == i2 + 1)) {
-							if (activeMovie.title.yesmoviessSeasonDatas == null) {
+						if (ToDown(ActiveMovie.title.name, replaceSpace: "") == ToDown(realtitle, replaceSpace: "") && (i1 == i2 || i1 == i2 - 1 || i1 == i2 + 1)) {
+							if (ActiveMovie.title.yesmoviessSeasonDatas == null) {
 								core.activeMovie.title.yesmoviessSeasonDatas = new List<YesmoviessSeasonData>();
 							}
-							activeMovie.title.yesmoviessSeasonDatas.Add(new YesmoviessSeasonData() { url = movieUrl, id = seasonData });
+							ActiveMovie.title.yesmoviessSeasonDatas.Add(new YesmoviessSeasonData() { url = movieUrl, id = seasonData });
 						}
 					}
-					core.yesmovieFishingDone?.Invoke(null, activeMovie);
-					core.fishingDone?.Invoke(null, activeMovie);
+					core.FishingDone?.Invoke(null, ActiveMovie);
 				}
 				catch (Exception _ex) {
 					error(_ex);
@@ -4973,11 +4156,11 @@ namespace CloudStreamForms.Core
 			public override void LoadLinksTSync(int episode, int season, int normalEpisode, bool isMovie, TempThread tempThred)
 			{
 				try {
-					if (activeMovie.title.yesmoviessSeasonDatas != null) {
-						for (int i = 0; i < activeMovie.title.yesmoviessSeasonDatas.Count; i++) {
+					if (ActiveMovie.title.yesmoviessSeasonDatas != null) {
+						for (int i = 0; i < ActiveMovie.title.yesmoviessSeasonDatas.Count; i++) {
 							//     print(activeMovie.title.yesmoviessSeasonDatas[i].id + "<-IDS:" + season);
-							if (activeMovie.title.yesmoviessSeasonDatas[i].id == (isMovie ? 1 : season)) {
-								string url = activeMovie.title.yesmoviessSeasonDatas[i].url;
+							if (ActiveMovie.title.yesmoviessSeasonDatas[i].id == (isMovie ? 1 : season)) {
+								string url = ActiveMovie.title.yesmoviessSeasonDatas[i].url;
 
 								/* TempThread tempThred = new TempThread();
                                  tempThred.typeId = 6; // MAKE SURE THIS IS BEFORE YOU CREATE THE THRED
@@ -5149,7 +4332,7 @@ namespace CloudStreamForms.Core
 
 		public static bool GetRequireCert(string url)
 		{
-			if (!Settings.IgnoreSSLCert) return false;
+			if (!Settings._IgnoreSSLCert) return false;
 
 			foreach (var _url in CertExeptSites) {
 				if (url.Contains(_url)) return true;
@@ -5273,9 +4456,18 @@ namespace CloudStreamForms.Core
 			}
 		}
 
+		static readonly string[] genresNames = new string[] { "Action", "Adventure", "Animation", "Biography", "Comedy", "Crime", "Drama", "Family", "Fantasy", "Film-Noir", "History", "Horror", "Music", "Musical", "Mystery", "Romance", "Sci-Fi", "Sport", "Thriller", "War", "Western" };
+
+		static int lastFetchRecommended = -1;
+		static readonly List<IMDbTopList> cacheFetchRecommended = new List<IMDbTopList>();
 		public static List<IMDbTopList> FetchRecomended(List<string> inp, bool shuffle = true, int max = 10)
 		{
-			List<IMDbTopList> topLists = new List<IMDbTopList>();
+			int cId = GetHashId(inp.Aggregate((a, b) => a + b)) + (shuffle ? 1 : 0) + max * 100;
+			if (lastFetchRecommended == cId) {
+				return cacheFetchRecommended;
+			}
+			lastFetchRecommended = cId;
+			cacheFetchRecommended.Clear();
 
 			CoreHelpers.Shuffle(inp);
 			if (inp.Count > max) {
@@ -5289,7 +4481,6 @@ namespace CloudStreamForms.Core
 
 				//string d =;
 				string _d = GetHTML(url);
-				List<string> genresNames = new List<string>() { "Action", "Adventure", "Animation", "Biography", "Comedy", "Crime", "Drama", "Family", "Fantasy", "Film-Noir", "History", "Horror", "Music", "Musical", "Mystery", "Romance", "Sci-Fi", "Sport", "Thriller", "War", "Western" };
 
 				const string lookFor = "<div class=\"rec_item\"";
 				while (_d.Contains(lookFor)) {
@@ -5300,8 +4491,12 @@ namespace CloudStreamForms.Core
 						string img = FindHTML(_d, "loadlate=\"", "\"");
 						string d = RemoveOne(_d, "<a href=\"/title/" + tt + "/vote?v=X;k", -200);
 						string __d = FindHTML(_d, "<div class=\"rec-title\">\n       <a href=\"/title/" + tt, "<div class=\"rec-rating\">");
+						string year = FindHTML(_d, "<span class=\"nobr\">", "<");
+						if (year != "") {
+							year = year[1..^1].Replace("TV Series ", "");
+						}
 						List<int> contansGenres = new List<int>();
-						for (int i = 0; i < genresNames.Count; i++) {
+						for (int i = 0; i < genresNames.Length; i++) {
 							if (__d.Contains(genresNames[i])) {
 								contansGenres.Add(i);
 							}
@@ -5314,14 +4509,14 @@ namespace CloudStreamForms.Core
 
 						lock (inpLock) {
 							bool add = true;
-							for (int z = 0; z < topLists.Count; z++) {
-								if (topLists[z].id == tt) {
+							for (int z = 0; z < cacheFetchRecommended.Count; z++) {
+								if (cacheFetchRecommended[z].id == tt) {
 									add = false;
 								};
 							}
 
 							if (add) {
-								topLists.Add(new IMDbTopList() { name = name, descript = descript, contansGenres = contansGenres, id = tt, img = img, place = -1, rating = value, runtime = "", genres = "" });
+								cacheFetchRecommended.Add(new IMDbTopList() { name = name, descript = descript, contansGenres = contansGenres, id = tt, img = img, place = -1, rating = value, runtime = "", genres = "", year = year });
 							}
 						}
 					}
@@ -5330,20 +4525,38 @@ namespace CloudStreamForms.Core
 					}
 				}
 			});
-			//}
 
 			if (shuffle) {
-				CoreHelpers.Shuffle<IMDbTopList>(topLists);
+				CoreHelpers.Shuffle<IMDbTopList>(cacheFetchRecommended);
 			}
 
-			return topLists;
+			return cacheFetchRecommended;
 		}
 
-		public async Task<List<IMDbTopList>> FetchTop100(List<string> order, int start = 1, int count = 250, bool top100 = true, bool isAnime = false, bool upscale = false, int x = 96, int y = 142, double multi = 1)
+		public static Dictionary<int, IMDbTopList[]> CachedTop100 = new Dictionary<int, IMDbTopList[]>();
+		static readonly List<int> cachedPopStack = new List<int>();
+		const int MAX_TOP_CACHE = 10;
+
+		static int GetHashId(string inp)
 		{
-			IMDbTopList[] topLists = new IMDbTopList[count];
-			//List<string> genres = new List<string>() { "action", "adventure", "animation", "biography", "comedy", "crime", "drama", "family", "fantasy", "film-noir", "history", "horror", "music", "musical", "mystery", "romance", "sci-fi", "sport", "thriller", "war", "western" };
-			//List<string> genresNames = new List<string>() { "Action", "Adventure", "Animation", "Biography", "Comedy", "Crime", "Drama", "Family", "Fantasy", "Film-Noir", "History", "Horror", "Music", "Musical", "Mystery", "Romance", "Sci-Fi", "Sport", "Thriller", "War", "Western" };
+			var hashed = md5Hasher.ComputeHash(Encoding.UTF8.GetBytes(inp));
+			return BitConverter.ToInt32(hashed, 0);
+		}
+
+		public static int GetCacheId(int start, int count, bool top100, bool isAnime, string order)
+		{
+			return (top100 ? 1 : 0) + (isAnime ? 20 : 10) + (start * 100) + (count * 10000) + GetHashId(order);
+		}
+
+		static readonly MD5 md5Hasher = MD5.Create();
+
+		public static string StripHTML(string input)
+		{
+			return Regex.Replace(input, "<.*?>", String.Empty);
+		}
+
+		public async Task<int> FetchTop100(List<string> order, int start = 1, int count = 250, bool top100 = true, bool isAnime = false, bool upscale = false, int x = 96, int y = 142, double multi = 1)
+		{
 			string orders = "";
 			for (int i = 0; i < order.Count; i++) {
 				if (i != 0) {
@@ -5351,13 +4564,20 @@ namespace CloudStreamForms.Core
 				}
 				orders += order[i];
 			}
+			int cId = GetCacheId(start, count, top100, isAnime, orders);
+			if (CachedTop100.ContainsKey(cId)) return cId;
+
+			IMDbTopList[] topLists = new IMDbTopList[count];
+			//List<string> genres = new List<string>() { "action", "adventure", "animation", "biography", "comedy", "crime", "drama", "family", "fantasy", "film-noir", "history", "horror", "music", "musical", "mystery", "romance", "sci-fi", "sport", "thriller", "war", "western" };
+			//List<string> genresNames = new List<string>() { "Action", "Adventure", "Animation", "Biography", "Comedy", "Crime", "Drama", "Family", "Fantasy", "Film-Noir", "History", "Horror", "Music", "Musical", "Mystery", "Romance", "Sci-Fi", "Sport", "Thriller", "War", "Western" };
+
 			//https://www.imdb.com/search/title/?genres=adventure&sort=user_rating,desc&title_type=feature&num_votes=25000,&pf_rd_m=A2FGELUUNOQJNL&pf_rd_p=5aab685f-35eb-40f3-95f7-c53f09d542c3&pf_rd_r=VV0XPKMS8FXZ6D8MM0VP&pf_rd_s=right-6&pf_rd_t=15506&pf_rd_i=top&ref_=chttp_gnr_2
 			//https://www.imdb.com/search/title/?title_type=feature&num_votes=25000,&genres=action&sort=user_rating,desc&start=51&ref_=adv_nxt
 			string trueUrl = $"https://www.imdb.com/search/title/?title_type=feature,tv_series,tv_miniseries&num_votes={(isAnime ? "1500" : "25000")},&genres=" + orders + (top100 ? "&sort=user_rating,desc" : "") + "&start=" + start + "&ref_=adv_nxt&count=" + count + (isAnime ? "&keywords=anime" : "");
 			print("TRUEURL:" + trueUrl);
 			string d = await mainCore.DownloadStringAsync(trueUrl, eng: true);
 
-			const string lookFor = "s=\"lo";//"class=\"loadlate\"";
+			//const string lookFor = "s=\"lo";//"class=\"loadlate\"";
 			int place = start - 1;
 			int counter = 0;
 
@@ -5373,14 +4593,16 @@ namespace CloudStreamForms.Core
 				var textMuted = dataHolder.QuerySelectorAll("> p.text-muted");
 				var runTimeHolder = textMuted[0];
 
-				string name = dataHolder.QuerySelector("> h3.lister-item-header > a").InnerText;
+				var _nameData = dataHolder.QuerySelector("> h3.lister-item-header");
+				string name = _nameData.QuerySelector("> a").InnerText;
+				string year = _nameData.QuerySelector("> span.lister-item-year")?.InnerText;
 				string runtime = runTimeHolder.QuerySelector("> span.runtime")?.InnerText;
 				string _genres = runTimeHolder.QuerySelector("> span.genre").InnerText;
 				string rating = dataHolder.QuerySelector("> div.ratings-bar > div.ratings-imdb-rating").GetAttributeValue("data-value", "").Replace(',', '.');
 				if (!rating.Contains('.')) {
 					rating += ".0";
 				}
-				string descript = textMuted[1].InnerHtml.Replace("  ", "").Replace("\n", "");
+				string descript = StripHTML(textMuted[1].InnerHtml.Replace("  ", "").Replace("\n", ""));
 				int lastIndex = descript.IndexOf('<');
 				if (lastIndex > 0) {
 					descript = descript.Substring(0, lastIndex);
@@ -5390,8 +4612,7 @@ namespace CloudStreamForms.Core
 				if (upscale) {
 					img = ConvertIMDbImagesToHD(img, x, y, multi);
 				}
-
-				topLists[counter] = (new IMDbTopList() { descript = descript, genres = _genres, id = id, img = img, name = name, place = place, rating = rating, runtime = runtime });
+				topLists[counter] = (new IMDbTopList() { descript = descript, genres = _genres, id = id, img = img, name = name, place = place, rating = rating, runtime = runtime, year = year.IsClean() ? year[1..^1] : "" });
 				counter++;
 				//print("-----------------------------------");
 				//print(name + " | " + runtime + " | " + _genres + " | " + rating + " | " + descript + " | " + id + " | " + img);
@@ -5414,9 +4635,14 @@ namespace CloudStreamForms.Core
 			*/
 
 			print("------------------------------------ DONE! ------------------------------------");
-			return topLists.ToList();
+			CachedTop100[cId] = topLists;
+			cachedPopStack.Add(cId);
+			if (cachedPopStack.Count > MAX_TOP_CACHE) {
+				CachedTop100.Remove(cachedPopStack[0]);
+				cachedPopStack.RemoveAt(0);
+			}
+			return cId;
 		}
-
 
 		public async Task QuickSearch(string text, bool purgeCurrentSearchThread = true, bool onlySearch = true, bool blocking = false)
 		{
@@ -5487,7 +4713,7 @@ namespace CloudStreamForms.Core
 					if (onlySearch) {
 						if (!GetThredActive(tempThred)) { return; }; // COPY UPDATE PROGRESS
 
-						searchLoaded?.Invoke(null, activeSearchResults);
+						SearchLoaded?.Invoke(null, activeSearchResults);
 					}
 				}
 				finally {
@@ -5526,7 +4752,6 @@ namespace CloudStreamForms.Core
 			return $"https://{slug}.{FindHTML(d, "\"url\":\"", "\"")}";
 		}
 
-		// DONT USE www2.himovies.to they have google recaptcha
 
 		static readonly string[] shortdates = new string[] {
 			"Jan",
@@ -5565,7 +4790,7 @@ namespace CloudStreamForms.Core
 			}
 		}
 
-		public void GetMALData(bool cacheData = true)
+		public void GetMALData(bool cacheData = true, int timeout = -1)
 		{
 			bool fetchData = true;
 			if (Settings.CacheMAL) {
@@ -5735,7 +4960,7 @@ namespace CloudStreamForms.Core
 								currentSelectedYear = currentSelectedYear,
 							};
 						}
-						catch (Exception _ex) {
+						catch {
 							await FetchAniList();
 						}
 					}
@@ -5872,14 +5097,14 @@ namespace CloudStreamForms.Core
 							Parallel.For(0, animeProviders.Length, (int i) => {
 								print("STARTEDANIME: " + animeProviders[i].ToString() + "|" + i);
 								lock (threadLock) {
-									fishProgressLoaded?.Invoke(null, new FishLoaded() { name = animeProviders[i].Name, progressProcentage = ((double)count) / animeProviders.Length, maxProgress = animeProviders.Length, currentProgress = count });
+									FishProgressLoaded?.Invoke(null, new FishLoaded() { name = animeProviders[i].Name, progressProcentage = ((double)count) / animeProviders.Length, maxProgress = animeProviders.Length, currentProgress = count });
 								}
 								if (Settings.IsProviderActive(animeProviders[i].Name)) {
 									animeProviders[i].FishMainLink(currentSelectedYear, tempThred, activeMovie.title.MALData);
 								}
 								lock (threadLock) {
 									count++;
-									fishProgressLoaded?.Invoke(null, new FishLoaded() { name = animeProviders[i].Name, progressProcentage = ((double)count) / animeProviders.Length, maxProgress = animeProviders.Length, currentProgress = count });
+									FishProgressLoaded?.Invoke(null, new FishLoaded() { name = animeProviders[i].Name, progressProcentage = ((double)count) / animeProviders.Length, maxProgress = animeProviders.Length, currentProgress = count });
 									print("COUNT INCRESED < -------------------------------- " + count);
 								}
 								//if (!GetThredActive(tempThred)) { return; }; // COPY UPDATE PROGRESS
@@ -5891,8 +5116,13 @@ namespace CloudStreamForms.Core
 					});
 					t.Start();
 
+					int time = 0;
 					while (t.IsAlive && !shouldSkipAnimeLoading) {
 						Thread.Sleep(10);
+						time += 10;
+						if (timeout != -1 && timeout < time) {
+							shouldSkipAnimeLoading = true;
+						}
 					}
 
 					print("SKIPPPED::: " + shouldSkipAnimeLoading);
@@ -5900,7 +5130,7 @@ namespace CloudStreamForms.Core
 						shouldSkipAnimeLoading = false;
 						//t.Abort();
 					}
-					fishProgressLoaded?.Invoke(null, new FishLoaded() { name = "Done!", progressProcentage = 1, maxProgress = animeProviders.Length, currentProgress = animeProviders.Length });
+					FishProgressLoaded?.Invoke(null, new FishLoaded() { name = "Done!", progressProcentage = 1, maxProgress = animeProviders.Length, currentProgress = animeProviders.Length });
 
 					// fishProgressLoaded?.Invoke(null, new FishLoaded() { name = "", progress = 1 });
 
@@ -5921,7 +5151,7 @@ namespace CloudStreamForms.Core
 
 					activeMovie.title.MALData.done = true;
 
-					malDataLoaded?.Invoke(null, activeMovie.title.MALData);
+					MalDataLoaded?.Invoke(null, activeMovie.title.MALData);
 
 					//print(sequel + "|" + realSquel + "|" + sqlLink);
 				}
@@ -5961,6 +5191,7 @@ namespace CloudStreamForms.Core
 		{
 			if (!FETCH_NOTIFICATION) return;
 
+#pragma warning disable CS0162 // Unreachable code detected
 			TempThread tempThred = CreateThread(2);
 			StartThread("FishMALNotification", () => {
 				try {
@@ -6042,7 +5273,7 @@ namespace CloudStreamForms.Core
 									//print("TotalDays:" + _t.Days + "|" + _t.Hours + "|" + _t.Minutes);
 								}
 							}
-							moeDone?.Invoke(null, activeMovie.moeEpisodes);
+							MoeDone?.Invoke(null, activeMovie.moeEpisodes);
 							return;
 							//   print(uri);
 							//}
@@ -6055,6 +5286,8 @@ namespace CloudStreamForms.Core
 					JoinThred(tempThred);
 				}
 			});
+#pragma warning restore CS0162 // Unreachable code detected
+
 		}
 
 		public static string ToLowerAndReplace(string inp, bool seasonReplace = true, bool replaceSpace = true)
@@ -6184,7 +5417,6 @@ namespace CloudStreamForms.Core
 									year = year,
 									ogName = ogName,
 									hdPosterUrl = hdPosterUrl,
-									fmoviesMetaData = new List<FMoviesData>(),
 									watchSeriesHdMetaData = new List<WatchSeriesHdMetaData>(),
 								};
 
@@ -6199,7 +5431,7 @@ namespace CloudStreamForms.Core
 							}
 
 							if (activeMovie.title.movieType == MovieType.Anime) {
-								GetMALData();
+								GetMALData(timeout: Settings.malTimeout);
 							}
 							else { // FISHING : THIS IS TO SPEED UP LINK FETHING
 								Task.Factory.StartNew(() => {
@@ -6244,7 +5476,7 @@ namespace CloudStreamForms.Core
 								App.SetKey("CacheImdb", __id, activeMovie);
 							}
 						}
-						titleLoaded?.Invoke(null, activeMovie);
+						TitleLoaded?.Invoke(null, activeMovie);
 					}
 				}
 				finally {
@@ -6252,10 +5484,6 @@ namespace CloudStreamForms.Core
 				}
 			});
 		}
-
-
-		// DONT USE  https://www1.moviesjoy.net/search/ THEY USE GOOGLE RECAPTCH TO GET LINKS
-		// DONT USE https://gostream.site/iron-man/ THEY HAVE DDOS PROTECTION
 
 		public void GetRealTrailerLinkFromImdbSingle(string url, int index, TempThread tempThred) // LOOK AT https://www.imdb.com/title/tt4508902/trailers/;; ///video/imdb/vi3474439449
 		{
@@ -6311,7 +5539,7 @@ namespace CloudStreamForms.Core
 						print("TRAILER::" + viUrl + "|" + name + "|" + poster);
 
 						index++;
-						trailerLoaded?.Invoke(null, activeMovie.title.trailers);
+						TrailerLoaded?.Invoke(null, activeMovie.title.trailers);
 
 						print(viUrl + "|" + name);
 					}
@@ -6492,7 +5720,7 @@ namespace CloudStreamForms.Core
 							print("ELAPSED TIME FOR FF::: " + _ss.ElapsedMilliseconds);
 						}
 
-						episodeHalfLoaded?.Invoke(null, activeMovie.episodes);
+						EpisodeHalfLoaded?.Invoke(null, activeMovie.episodes);
 
 						if (activeMovie.title.movieType == MovieType.Anime) {
 							while (!activeMovie.title.MALData.done) {
@@ -6502,7 +5730,7 @@ namespace CloudStreamForms.Core
 							//string _d = DownloadString("");
 						}
 
-						episodeLoaded?.Invoke(null, activeMovie.episodes);
+						EpisodeLoaded?.Invoke(null, activeMovie.episodes);
 					}
 					finally {
 						JoinThred(tempThred);
@@ -6515,7 +5743,7 @@ namespace CloudStreamForms.Core
 					ep
 				};
 
-				episodeLoaded?.Invoke(null, activeMovie.episodes);
+				EpisodeLoaded?.Invoke(null, activeMovie.episodes);
 			}
 		}
 
@@ -6613,14 +5841,23 @@ namespace CloudStreamForms.Core
 			}
 		}
 
-		public int GetMaxEpisodesInAnimeSeason(int currentSeason, bool isDub, TempThread? tempThred = null)
+		public struct AnimeProviderEpisodes
 		{
+			public int maxEpisode;
+			public string provider;
+		}
+
+		public int GetMaxEpisodesInAnimeSeason(int currentSeason, bool isDub, out AnimeProviderEpisodes[] pData, TempThread? tempThred = null)
+		{
+			pData = new AnimeProviderEpisodes[animeProviders.Length];
 			if (activeMovie.title.MALData.seasonData.Count > currentSeason) {
 				int currentMax = 0;
 				for (int i = 0; i < animeProviders.Length; i++) {
+					pData[i].provider = animeProviders[i].Name;
 					if (Settings.IsProviderActive(animeProviders[i].Name)) {
 						try {
 							int cmax = animeProviders[i].GetLinkCount(currentSeason, isDub, tempThred);
+							pData[i].maxEpisode = cmax;
 							if (cmax > currentMax) {
 								currentMax = cmax;
 							}
@@ -6643,7 +5880,7 @@ namespace CloudStreamForms.Core
 
 		public void DownloadSubtitlesAndAdd(string lang = "", bool isEpisode = false, int episodeCounter = 0)
 		{
-			if (!globalSubtitlesEnabled) { return; }
+			if (!GlobalSubtitlesEnabled) { return; }
 			if (lang == "") { lang = Settings.NativeSubShortName; }
 
 			TempThread tempThred = CreateThread(3);
@@ -6827,7 +6064,7 @@ namespace CloudStreamForms.Core
 				}
 			}
 			catch (Exception _ex) {
-				error("MAIN EX IN movcloud");
+				error("MAIN EX IN movcloud " + _ex);
 			}
 
 			//   bool fembedAdded = 
@@ -7006,153 +6243,7 @@ namespace CloudStreamForms.Core
 								error("MAIN EX PARALLEL FOR: " + _ex);
 							}
 						});
-
-						/*
-                        async void JoinT(TempThread t, int wait)
-                        {
-                            await Task.Delay(wait);
-                            JoinThred(t); 
-                        }
-
-                        JoinT(temp, 10000);*/
 						JoinThred(temp);
-						/*
-                        int _episode = int.Parse(episode.ToString()); // READ ONLY
-
-                        if (isDub) {
-                            TempThread tempthread = new TempThread();
-                            tempthread.typeId = 3; // MAKE SURE THIS IS BEFORE YOU CREATE THE THRED
-                            tempthread.Thread = new System.Threading.Thread(() => {
-                                try {
-                                    print("DUBBED::" + episode + "|" + activeMovie.title.MALData.currentActiveDubbedMaxEpsPerSeason.Sum());
-                                    if (episode <= activeMovie.title.MALData.currentActiveDubbedMaxEpsPerSeason.Sum()) {
-                                        List<string> fwords = GetAllDubbedAnimeLinks(activeMovie, season);
-                                        print("SLUG1." + fwords[0]);
-                                        int sel = -1;
-                                        int floor = 0;
-                                        int subtract = 0;
-                                        if (activeMovie.title.MALData.currentActiveDubbedMaxEpsPerSeason != null) {
-                                            for (int i = 0; i < activeMovie.title.MALData.currentActiveDubbedMaxEpsPerSeason.Count; i++) {
-                                                int seling = floor + activeMovie.title.MALData.currentActiveDubbedMaxEpsPerSeason[i];
-
-                                                if (episode > floor && episode <= seling) {
-                                                    sel = i;
-                                                    subtract = floor;
-
-                                                }
-                                                //print(activeMovie.title.MALData.currentActiveMaxEpsPerSeason[i] + "<<");
-                                                floor += activeMovie.title.MALData.currentActiveDubbedMaxEpsPerSeason[i];
-                                            }
-                                        }
-
-                                        string fwordLink = fwords[sel];
-                                        print("SLUGOS: " + fwordLink);
-                                        DubbedAnimeEpisode dubbedEp = GetDubbedAnimeEpisode(fwordLink, _episode - subtract);
-
-                                        string serverUrls = dubbedEp.serversHTML;
-                                        print("SERVERURLLRL:" + serverUrls);
-                                        const string sLookFor = "hl=\"";
-                                        while (serverUrls.Contains(sLookFor)) {
-                                            string baseUrl = FindHTML(dubbedEp.serversHTML, "hl=\"", "\"");
-                                            print("BASE::" + baseUrl);
-                                            string burl = "https://bestdubbedanime.com/xz/api/playeri.php?url=" + baseUrl + "&_=" + UnixTime;
-                                            print(burl);
-                                            string _d = DownloadString(burl);
-                                            print("SSC:" + _d);
-                                            int prio = -10; // SOME LINKS ARE EXPIRED, CAUSING VLC TO EXIT
-
-                                            string enlink = "\'";
-                                            if (_d.Contains("<source src=\"")) {
-                                                enlink = "\"";
-                                            }
-                                            string lookFor = "<source src=" + enlink;
-                                            while (_d.Contains(lookFor)) {
-                                                string vUrl = FindHTML(_d, lookFor, enlink);
-                                                if (vUrl != "") {
-                                                    vUrl = "https:" + vUrl;
-                                                }
-                                                string label = FindHTML(_d, "label=" + enlink, enlink);
-                                                print("DUBBEDANIMECHECK:" + vUrl + "|" + label);
-                                                //if (GetFileSize(vUrl) > 0) {
-                                                AddPotentialLink(normalEpisode, vUrl, "DubbedAnime " + label.Replace("0p", "0") + "p", prio);
-                                                //}
-
-                                                _d = RemoveOne(_d, lookFor);
-                                                _d = RemoveOne(_d, "label=" + enlink);
-                                            }
-                                            serverUrls = RemoveOne(serverUrls, sLookFor);
-                                        }
-                                    }
-                                }
-                                finally {
-                                    JoinThred(tempthread);
-                                }
-                            });
-                            tempthread.Thread.Name = "DubAnime Thread";
-                            tempthread.Thread.Start();
-
-                        }
-
-                        var kickAssLinks = GetAllKickassLinksFromAnime(activeMovie, season, isDub);
-                        print("KICKASSOS:" + normalEpisode);
-                        for (int i = 0; i < kickAssLinks.Count; i++) {
-                            print("KICKASSLINK:" + i + ". |" + kickAssLinks[i]);
-                        }
-                        if (normalEpisode < kickAssLinks.Count) {
-                            GetKickassVideoFromURL(kickAssLinks[normalEpisode], normalEpisode);
-                        }
-
-                        try {
-                            if (episode <= activeMovie.title.MALData.currentActiveGoGoMaxEpsPerSeason.Sum()) {
-                                string fwordLink = "";
-                                List<string> fwords = GetAllGogoLinksFromAnime(activeMovie, season, isDub);
-                                // for (int i = 0; i < fwords.Count; i++) {
-                                // print("FW: " + fwords[i]);
-                                //  }
-
-                                // --------------- GET WHAT SEASON THE EPISODE IS IN ---------------
-
-                                int sel = -1;
-                                int floor = 0;
-                                int subtract = 0;
-                                // print(activeMovie.title.MALData.currentActiveMaxEpsPerSeason);
-                                if (activeMovie.title.MALData.currentActiveGoGoMaxEpsPerSeason != null) {
-                                    for (int i = 0; i < activeMovie.title.MALData.currentActiveGoGoMaxEpsPerSeason.Count; i++) {
-                                        int seling = floor + activeMovie.title.MALData.currentActiveGoGoMaxEpsPerSeason[i];
-
-                                        if (episode > floor && episode <= seling) {
-                                            sel = i;
-                                            subtract = floor;
-
-                                        }
-                                        //print(activeMovie.title.MALData.currentActiveMaxEpsPerSeason[i] + "<<");
-                                        floor += activeMovie.title.MALData.currentActiveGoGoMaxEpsPerSeason[i];
-                                    }
-                                }
-                                //print("sel: " + sel);
-                                if (sel != -1) {
-                                    try {
-                                        fwordLink = fwords[sel].Replace("-dub", "") + (isDub ? "-dub" : "");
-                                    }
-                                    catch (Exception) {
-
-                                    }
-                                }
-
-                                if (fwordLink != "") { // IF FOUND
-                                    string dstring = "https://www3.gogoanime.io/" + fwordLink + "-episode-" + (_episode - subtract);
-                                    print("DSTRING: " + dstring);
-                                    string d = DownloadString(dstring, tempThred);
-
-                                    AddEpisodesFromMirrors(tempThred, d, normalEpisode);
-                                }
-                            }
-                        }
-                        catch (Exception) {
-                            print("GOGOANIME ERROR");
-                        }
-                        */
-
 					}
 					if (movieSearch) { // use https://movies123.pro/
 
@@ -7182,111 +6273,6 @@ namespace CloudStreamForms.Core
 						}
 
 						JoinThred(temp);
-
-
-
-						/*
-                        for (int i = 0; i < movieProviders.Length; i++) {
-                            movieProviders[i].LoadLinksTSync(episode, season, normalEpisode, isMovie, temp);
-                        }*/
-
-						/*
-                        if (isMovie) {
-                            AddFastMovieLink(normalEpisode);
-                            AddFastMovieLink2(normalEpisode);
-                        }
-                        else if (activeMovie.title.movieType == MovieType.TVSeries) {
-                            GetTMDB(episode, season, normalEpisode);
-                            GetWatchTV(season, episode, normalEpisode);
-                        }
-                        GetFmoviesLinks(normalEpisode, episode, season);
-                        GetLiveMovies123Links(normalEpisode, episode, season, isMovie, "https://movies123.live");
-                        GetLiveMovies123Links(normalEpisode, episode, season, isMovie, "https://c123movies.com");
-                        GetThe123movies(normalEpisode, episode, season, isMovie);
-
-                        if (activeMovie.title.yesmoviessSeasonDatas != null) {
-                            for (int i = 0; i < activeMovie.title.yesmoviessSeasonDatas.Count; i++) {
-                                //     print(activeMovie.title.yesmoviessSeasonDatas[i].id + "<-IDS:" + season);
-                                if (activeMovie.title.yesmoviessSeasonDatas[i].id == (isMovie ? 1 : season)) {
-                                    YesMovies(normalEpisode, activeMovie.title.yesmoviessSeasonDatas[i].url);
-                                }
-                            }
-                        }
-                        GetLinksFromWatchSeries(season, normalEpisode);
-                        if (GOMOSTEAM_ENABLED) {
-                            TempThread minorTempThred = new TempThread();
-                            minorTempThred.typeId = 3; // MAKE SURE THIS IS BEFORE YOU CREATE THE THRED
-                            minorTempThred.Thread = new System.Threading.Thread(() => {
-                                try {
-                                    string find = activeMovie.title.name.ToLower() + (activeMovie.title.movieType == MovieType.TVSeries ? "-season-" + season : "");
-                                    find = find.Replace("\'", "-");
-                                    Regex rgx = new Regex("[^a-zA-Z0-9 -]");
-                                    find = rgx.Replace(find, "");
-
-
-                                    find = find.Replace(" - ", "-").Replace(" ", "-");
-
-                                    if (activeMovie.title.movieType == MovieType.TVSeries) { // ADD CORRECT FORMAT; https://gomostream.com/show/game-of-thrones/01-01
-                                        find = find.Replace("-season-", "/");
-
-                                        for (int i = 0; i < 10; i++) {
-                                            if (find.EndsWith("/" + i)) {
-                                                find = find.Replace("/" + i, "/0" + i);
-                                            }
-                                        }
-
-                                        if (episode.ToString() != "-1") {
-                                            find += "-" + episode;
-                                        }
-
-                                        for (int i = 0; i < 10; i++) {
-                                            if (find.EndsWith("-" + i)) {
-                                                find = find.Replace("-" + i, "-0" + i);
-                                            }
-                                        }
-                                    }
-
-                                    string gomoUrl = "https://" + GOMOURL + "/" + ((activeMovie.title.movieType == MovieType.Movie || activeMovie.title.movieType == MovieType.AnimeMovie) ? "movie" : "show") + "/" + find;
-                                    print(gomoUrl);
-                                    DownloadGomoSteam(gomoUrl, tempThred, normalEpisode);
-                                }
-                                finally {
-                                    JoinThred(minorTempThred);
-                                }
-                            });
-                            minorTempThred.Thread.Name = "Mirror Thread";
-                            minorTempThred.Thread.Start();
-                        }
-                        if (SUBHDMIRROS_ENABLED) {
-                            if (activeMovie.title.movies123MetaData.movieLink != null) {
-                                if (activeMovie.title.movieType == MovieType.TVSeries) {
-                                    int normalSeason = season - 1;
-                                    List<Movies123SeasonData> seasonData = activeMovie.title.movies123MetaData.seasonData;
-                                    // ---- TO PREVENT ERRORS START ----
-                                    if (seasonData != null) {
-                                        if (seasonData.Count > normalSeason) {
-                                            if (seasonData[normalSeason].episodeUrls != null) {
-                                                if (seasonData[normalSeason].episodeUrls.Count > normalEpisode) {
-                                                    // ---- END ----
-                                                    string fwordLink = seasonData[normalSeason].seasonUrl + "/" + seasonData[normalSeason].episodeUrls[normalEpisode];
-                                                    print(fwordLink);
-                                                    for (int f = 0; f < MIRROR_COUNT; f++) {
-                                                        GetLinkServer(f, fwordLink, normalEpisode);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                else {
-                                    for (int f = 0; f < MIRROR_COUNT; f++) {
-                                        print(">::" + f);
-                                        GetLinkServer(f, activeMovie.title.movies123MetaData.movieLink); // JUST GET THE MOVIE
-                                    }
-                                }
-                            }
-
-                        }*/
 					}
 				}
 				finally {
@@ -7317,28 +6303,17 @@ namespace CloudStreamForms.Core
 				linkContext = RemoveOne(linkContext, lookFor);
 			}
 		}
+		static readonly string[] qValues = new string[] { "280p", "480p", "720p", "1080p", "1280p", "1920p", "1440", };
 
 		public void GetFembed(string fembed, TempThread tempThred, int normalEpisode, string urlType = "https://www.fembed.com", string referer = "www.fembed.com", string extra = "")
 		{
 			if (fembed != "") {
-				int prio = 10;
 				string _d = PostRequest(urlType + "/api/source/" + fembed, urlType + "/v/" + fembed, "r=&d=" + referer, tempThred);
 				if (_d != "") {
-					//TODO ADD REGEX
-					const string lookFor = "\"file\":\"";
-					string _labelFind = "\"label\":\"";
-					while (_d.Contains(_labelFind)) {
-						string link = FindHTML(_d, lookFor, "\",\"");
-
-						//  d = RemoveOne(d, link);
-						link = link.Replace("\\/", "/");
-
-						string label = FindHTML(_d, _labelFind, "\"");
-						if (CheckIfURLIsValid(link)) {
-							prio++;
-							AddPotentialLink(normalEpisode, link, "XStream " + extra, prio, label);
-						}
-						_d = RemoveOne(_d, _labelFind);
+					var links = GetAllFilesRegex(_d);
+					foreach (var link in links) {
+						int prio = 3 + qValues.IndexOf(link.label);
+						AddPotentialLink(normalEpisode, link.url, "XStream " + extra, prio, link.label);
 					}
 				}
 			}
@@ -7441,7 +6416,7 @@ namespace CloudStreamForms.Core
 				if (add) {
 					//print(p.name + "|" + p.posterUrl);
 					activeSearchResults.Add(p);
-					addedSeachResult?.Invoke(null, p);
+					AddedSeachResult?.Invoke(null, p);
 				}
 			}
 		}
@@ -7754,12 +6729,13 @@ namespace CloudStreamForms.Core
 
 		public bool AddPotentialLink(int normalEpisode, BasicLink basicLink)
 		{
+			print("ADDING LINK::: " + basicLink.baseUrl);
 			lock (cachedLinksLock) {
 				string id = (activeMovie.title.IsMovie ? activeMovie.title.id : activeMovie.episodes[normalEpisode].id);
 				var link = GetCachedLink(id);
 				var holder = (LinkHolder)link;
 				if (holder.links.Select(t => t.baseUrl).Contains(basicLink.baseUrl)) return false;
-				linkAdded?.Invoke(null, id);
+				LinkAdded?.Invoke(null, id);
 				holder.links.Add(basicLink);
 				return true;
 			}
@@ -7821,7 +6797,7 @@ namespace CloudStreamForms.Core
 						if (holder.links.Select(t => t.baseUrl).Contains(_url)) return false;
 
 						print("ADD LINK:" + normalEpisode + "|" + _name + "|" + _priority + "|" + _url);
-						linkAdded?.Invoke(null, id);
+						LinkAdded?.Invoke(null, id);
 						holder.links.Add(new BasicLink() {
 							baseUrl = _url,
 							isAdvancedLink = false,
@@ -7850,25 +6826,6 @@ namespace CloudStreamForms.Core
 #if DEBUG
 				EndStopwatchNum(_s, nameof(AddPotentialLink));
 #endif
-			}
-		}
-
-		public DubbedAnimeEpisode GetDubbedAnimeEpisode(string slug, int? eps = null)
-		{
-			bool isMovie = eps == null;
-			string url = "https://bestdubbedanime.com/" + (isMovie ? "movies/jsonMovie" : "xz/v3/jsonEpi") + ".php?slug=" + slug + (eps != null ? ("/" + eps) : "") + "&_=" + UnixTime;
-			string d = DownloadString(url, referer: $"https://bestdubbedanime.com/{(isMovie ? "movies/" : "")}{slug}{(isMovie ? "" : $"/{eps}")}");
-			var f = JsonConvert.DeserializeObject<DubbedAnimeSearchRootObject>(d, new JsonSerializerSettings() { NullValueHandling = NullValueHandling.Ignore });
-			if (f.result.error) {
-				return new DubbedAnimeEpisode();
-			}
-			else {
-				try {
-					return f.result.anime[0];
-				}
-				catch (Exception) {
-					return new DubbedAnimeEpisode();
-				}
 			}
 		}
 
@@ -7976,7 +6933,7 @@ namespace CloudStreamForms.Core
 			int min = (int)Math.Ceiling((sec - rsec) / 60f);
 			int rmin = min % 60;
 			int h = (int)Math.Ceiling((min - rmin) / 60f);
-			int rh = h;// h % 24;
+			//int rh = h;// h % 24;
 			return (h > 0 ? ForceLetters(h) + ":" : "") + ((rmin >= 0 || h >= 0) ? ForceLetters(rmin) + ":" : "") + ForceLetters(rsec);
 		}
 
@@ -8080,7 +7037,7 @@ namespace CloudStreamForms.Core
 						}), _webRequest);
 
 					}
-					catch (Exception _ex) {
+					catch {
 						error("FATAL EX IN POSTREQUEST");
 					}
 				}), webRequest);
@@ -8176,7 +7133,7 @@ namespace CloudStreamForms.Core
 			for (int i = 0; i < repeats; i++) {
 				if (s == "") {
 					//s = DownloadStringOnce(url, tempThred, UTF8Encoding, waitTime);
-					s = await DownloadStringWithCertAsync(url, tempThred, waitTime, "", referer, encoding, headerName, headerValue, eng);
+					s = await DownloadStringWithCertAsync(url, tempThred, waitTime, referer, encoding, headerName, headerValue, eng);
 				}
 			}
 #if DEBUG
@@ -8209,7 +7166,7 @@ namespace CloudStreamForms.Core
 			return s;
 		}
 
-		public async Task<string> DownloadStringWithCertAsync(string url, TempThread? tempThred = null, int waitTime = 10000, string requestBody = "", string referer = "", Encoding encoding = null, string[] headerName = null, string[] headerValue = null, bool eng = false)
+		public async Task<string> DownloadStringWithCertAsync(string url, TempThread? tempThred = null, int waitTime = 10000, string referer = "", Encoding encoding = null, string[] headerName = null, string[] headerValue = null, bool eng = false)
 		{
 			if (!url.IsClean()) return "";
 			url = url.Replace("http://", "https://");
@@ -8924,6 +7881,7 @@ idMal
                 large 
             }
         }*/
+		/*
 		private const string AniList_anime_char_link = @"https://graphql.anilist.co/api/v2?query=query($id: Int!, $type: MediaType, $page: Int = 1) {
   Media(id: $id, type: $type) {
     id
@@ -8964,7 +7922,7 @@ idMal
       }
     }
   }
-}&variables={ ""id"":""{0}"",""type"":""ANIME""}";
+}&variables={ ""id"":""{0}"",""type"":""ANIME""}";*/
 		public Api()
 		{
 		}
@@ -9417,8 +8375,8 @@ namespace AniListAPI
 			public List<string> genres;
 			public List<object> synonyms;
 			public object nextAiringEpisode;
-			public Relations relations { set; get; }
-			public int? idMal { set; get; }
+			public Relations relations;
+			public int? idMal;
 		}
 
 		public struct PageInfo
@@ -9451,42 +8409,42 @@ namespace AniListAPI
 
 		public class Name2
 		{
-			public string first { get; set; }
-			public string last { get; set; }
-			public string native { get; set; }
+			public string first;
+			public string last;
+			public string native;
 		}
 
 		public class Image2
 		{
-			public string medium { get; set; }
-			public string large { get; set; }
+			public string medium;
+			public string large;
 		}
 
 		public class VoiceActor
 		{
-			public int id { get; set; }
-			public Name2 name { get; set; }
-			public Image2 image { get; set; }
-			public string language { get; set; }
+			public int id;
+			public Name2 name;
+			public Image2 image;
+			public string language;
 		}
 
 		public class Edge
 		{
-			public Node node { get; set; }
-			public string role { get; set; }
-			public List<VoiceActor> voiceActors { get; set; }
+			public Node node;
+			public string role;
+			public List<VoiceActor> voiceActors;
 		}
 
 		public class Characters
 		{
-			public PageInfo pageInfo { get; set; }
-			public List<Edge> edges { get; set; }
+			public PageInfo pageInfo;
+			public List<Edge> edges;
 		}
 
 
 		public class RootObject
 		{
-			public Data data { get; set; }
+			public Data data;
 		}
 	}
 }
