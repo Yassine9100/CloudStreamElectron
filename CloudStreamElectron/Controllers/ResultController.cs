@@ -58,12 +58,12 @@ namespace CloudStreamElectron.Controllers
 		public static void CmdCommand(this string startOptions, string filename)
 		{
 			try {
- 				Process cmd = new Process();
- 				cmd.StartInfo.FileName = filename;
+				Process cmd = new Process();
+				cmd.StartInfo.FileName = filename;
 				cmd.StartInfo.Arguments = startOptions;
 				cmd.StartInfo.UseShellExecute = true;
 				cmd.StartInfo.WorkingDirectory = "c:\\";
-				cmd.Start(); 
+				cmd.Start();
 			}
 			catch (Exception _ex) {
 				Console.WriteLine(_ex);
@@ -304,7 +304,7 @@ namespace CloudStreamElectron.Controllers
 				if (!dubExists && isDub) {
 					isDub = false;
 				}
-				maxEpisodes = core.GetMaxEpisodesInAnimeSeason(season, isDub, out _);
+				maxEpisodes = Math.Min(core.GetMaxEpisodesInAnimeSeason(season, isDub, out _), maxEpisodes);
 			}
 
 			var json = JsonConvert.SerializeObject(new ResultSeasonData() { Episodes = episodes.GetRange(0, maxEpisodes), dubExists = dubExists, subExists = subExists });
@@ -369,14 +369,14 @@ namespace CloudStreamElectron.Controllers
 				while (!done) {
 					await Task.Delay(50);
 				}
-				var mClone = (Movie)m.Copy();
-				mClone.title.hdPosterUrl = CloudStreamCore.ConvertIMDbImagesToHD(mClone.title.hdPosterUrl, null, null, 2);
+				var mClone = m.Copy();
+				mClone.title.hdPosterUrl = ConvertIMDbImagesToHD(mClone.title.hdPosterUrl, null, null, 2);
 				mClone.title.recomended = mClone.title.recomended.Select(t => new Poster() { name = t.name, url = t.url, posterUrl = ConvertIMDbImagesToHD(t.posterUrl, 76, 113, 6) }).ToList();
 
 				var json = JsonConvert.SerializeObject(mClone);
 				json = json[0..^1];
-				json += $",\"Guid\":\"{_g.ToString()}\"}}";
-				return (json);
+				json += $",\"Guid\":\"{_g}\"}}";
+				return json;
 			}
 			return _url;
 			//return (JsonConvert.SerializeObject(core.activeSearchResults.ToArray()));

@@ -3,7 +3,7 @@
 	--whiteBorder : #e6e6e6;
 	--mainBlueBG: #111; /*0f1925;;*/
 	--mainBlackBg: #13131b;
-	--mainUTxt: #6a6a6a;
+	--mainUTxt: #7d7d7d;
 	--mainTxt: fbfbfc;
 	--lightBlue: #829eff;
 	--darkBlue: #303F9F;
@@ -161,7 +161,7 @@ h3 {
 .headerBtt {
 	background-color: #00000000;
 	border-radius: 20px;
-	padding: 10px;
+	padding: 5px;
 	color: var(--mainUTxt);
 	outline: none;
 	border: none;
@@ -309,9 +309,9 @@ h3 {
 	color: #e6e6e6;
 	/* margin: 10px;*/
 	/* border: solid;*/
+	border-radius: 3px;
 	border: solid;
 	border-color: #e6e6e600;
-	border-radius: 0px;
 	padding: 9px;
 	margin-bottom: 2px;
 	font-size: 16px;
@@ -467,8 +467,8 @@ h3 {
 		/*-webkit-transform: scale(0.99);
 		scale: 0.99;*/
 		/* opacity: 0.8;*/
-		background-color: #111;
-		border-color:var(--whiteBorder);
+		background-color: #222;
+		/*border-color:var(--whiteBorder);*/
 		/*transition: opacity 0.05s linear;*/
 		transition: scale 0.05s linear;
 		transition: -webkit-transform 0.05s linear;
@@ -529,7 +529,6 @@ h3 {
 	flex-wrap: wrap;
 	padding: 1px 2px;
 	overflow: hidden;
-	margin-bottom: 30px;
 	background-color: #161616; /*#303F9F #829eff;*/
 	border-radius: 2px;
 }
@@ -548,6 +547,18 @@ h3 {
 		animation: phAnimation .8s linear infinite;
 		background: linear-gradient(90deg, hsla(0,0%,100%,0) 46%,#333 50%,hsla(0,0%,100%,0) 54%) 50% 50%;
 	}
+
+.loadingBarDereminate {
+	box-sizing: border-box;
+	direction: ltr;
+	position: relative;
+	display: flex;
+	flex-wrap: wrap;
+	padding: 1px 2px;
+	overflow: hidden;
+	background-color: #161616; 
+	border-radius: 2px;
+}
 
 .loadingItem {
 	box-sizing: border-box;

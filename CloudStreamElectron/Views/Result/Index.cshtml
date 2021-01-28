@@ -101,11 +101,30 @@
 	}
 
 	function ToggleLoading(load) {
-		var sty = "opacity:1;";
-		if (!load) {
-			sty = "opacity:0;";
+		if (isFullLoading) {
+			load = false;
 		}
+		$("#IsLoading").show();
+
+		let sty = load ? "opacity:1;" : "opacity:0;";
 		document.getElementById("IsLoading").style = sty;
+	}
+
+	var isFullLoading = false;
+
+	function ToggleLoadingTime(loadTime) {
+		isFullLoading = true;
+		$("#IsLoadingDereminate").show();
+		$("#IsLoading").hide();
+		$("#IsLoadingDereminate").fadeTo(100, 1);
+		$("#IsLoadingDereminate").width = '0%';
+		$("#IsLoadingDereminate").animate({ width: '100%' }, loadTime, "");
+		$("#IsLoadingDereminate").fadeTo(100, 0);
+		
+		isFullLoading = false;
+		//$("#IsLoadingDereminate").animate({ width: '100%' }, loadTime, "");
+		//	$("#IsLoadingDereminate").hide();
+
 	}
 
 	function SelectDub(_isDub) {
@@ -125,6 +144,8 @@
 
 	var currentTitleName = "";
 
+	var totalLoadTime = 4000;
+
 	function load() {
 		ToggleLoading(true);
 		document.title = 'CloudStream 2 - Loading...';
@@ -143,8 +164,7 @@
 			cache: false,
 
 			success: function (data) {
-
-				var title = data.title;
+				let title = data.title;
 				document.title = 'CloudStream 2 - ' + title.name;
 
 				currentGuid = data.Guid;
@@ -158,7 +178,7 @@
 					}
 				}
 
-				var img = document.getElementById("mainPosterImg");
+				let img = document.getElementById("mainPosterImg");
 				img.src = data.title.hdPosterUrl;
 
 				Fade("img-background", "");
@@ -173,12 +193,12 @@
 				currentTitleName = title.name;
 				img.style = "height: 100%; width: 100%;";
 
-				var genres = title.genres;
+				let genres = title.genres;
 				movieType = data.title.movieType;
 				div = document.getElementById("GenreTags");
 				div.innerHTML = "";
 				for (i = 0; i < genres.length; i++) {
-					var ele = document.createElement("li");
+					let ele = document.createElement("li");
 					ele.style = "margin-top:0px; list-style:none; border-bottom: 0px solid hsla(0,0%,100%,.05); padding-bottom:0px;" // BORDER border-bottom: 1px
 					//ele.id = "fff"
 					//   ele.text = "<button id=\"fff\">Iron man</button>"
@@ -193,8 +213,8 @@
 				}
 
 				//TODO ADD recomended
-				var recStack = document.getElementById("RecStack");
-				var stackInner = "";
+				let recStack = document.getElementById("RecStack");
+				let stackInner = "";
 				for (var i = 0; i < data.title.recomended.length; i++) {
 					var rec = data.title.recomended[i];
 					/*name;
@@ -210,11 +230,11 @@
 
 				// ========================================= SEASONS =========================================
 
-				var seasonDrop = document.getElementById("SeasonDropDown");
+				let seasonDrop = document.getElementById("SeasonDropDown");
 				seasonDrop.innerHTML = "";
 
 				for (var i = 0; i < data.title.seasons; i++) {
-					var ele = document.createElement("button");
+					let ele = document.createElement("button");
 					ele.setAttribute("onclick", `SelectSeason(${(i + 1)})`);// = "class=\"dropSel\" onclick=\"alert('hello')\"";
 					ele.className = "dropSel";
 					ele.style = " z-index: 10; !important";
@@ -222,7 +242,7 @@
 					seasonDrop.appendChild(ele);
 				}
 
-				var seasonPicker = document.getElementById("SeasonPicker");
+				let seasonPicker = document.getElementById("SeasonPicker");
 				if (data.title.seasons <= 1) {
 					seasonPicker.remove();
 					SelectSeason(1);
@@ -230,6 +250,11 @@
 				else {
 					seasonPicker.style = "";
 					SelectSeason(1);
+				}
+
+				if (movieType == 2) {
+					ToggleLoading(false);
+					ToggleLoadingTime(totalLoadTime);
 				}
 
 				for (var i = 0; i < 100; i++) {
@@ -257,7 +282,7 @@
 	}
 
 	function DownloadFile(data, filename, type) {
-		var file = new Blob([data], { type: type });
+		let file = new Blob([data], { type: type });
 		if (window.navigator.msSaveOrOpenBlob) { // IE10+
 			alert("false");
 			window.navigator.msSaveOrOpenBlob(file, filename);
@@ -293,9 +318,9 @@
 	}
 
 	function MainDownload() {
-		var baseLink = lastData.links[lastMirror];
-		var url = baseLink.baseUrl;
-		var name = baseLink.name;
+		let baseLink = lastData.links[lastMirror];
+		let url = baseLink.baseUrl;
+		let name = baseLink.name;
 		DownloadFile(url, currentSeason[lastEpisodeIndex - 1].name + " - " + name + ".mp4", "video/mp4");
 	}
 
@@ -701,7 +726,8 @@
 	}
 
 	function GetSeasons(season) {
-		ToggleLoading(true);
+					ToggleLoading(true);
+		
 		lastSeason = season;
 
 		$.ajax({
@@ -841,11 +867,13 @@
 		">Home</a>
 	</div>
 
-
-	<div class="loadingBar" id="IsLoading"></div>
+	<div>
+		<div class="loadingBar" id="IsLoading"></div>
+		<div id="IsLoadingDereminate" class="loadingBarDereminate" style="width: 0%; display:none; background-color:var(--LoadingBar); "></div>
+	</div>
 
 	<!--#FFFFFF03-->
-	<div style="padding: 40px; padding-top:20px;">
+	<div style="padding: 40px; padding-top:50px;">
 
 		<div>
 			<div style="  margin-left:10px; ">
